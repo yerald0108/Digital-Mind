@@ -7,6 +7,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import { ToastContainer } from '../src/presentation/components/ui/Toast/ToastContainer';
 import { initDatabaseSync } from '../src/data/database/db';
 import { useTemaStore } from '../src/presentation/stores/temaStore';
@@ -27,11 +34,11 @@ export default function RootLayout() {
 
         // 2. Fuentes
         await Font.loadAsync({
-          Inter_400Regular: require('@expo-google-fonts/inter/Inter_400Regular.ttf'),
-          Inter_500Medium: require('@expo-google-fonts/inter/Inter_500Medium.ttf'),
-          Inter_600SemiBold: require('@expo-google-fonts/inter/Inter_600SemiBold.ttf'),
-          Inter_700Bold: require('@expo-google-fonts/inter/Inter_700Bold.ttf'),
-          Inter_800ExtraBold: require('@expo-google-fonts/inter/Inter_800ExtraBold.ttf'),
+          Inter_400Regular,
+          Inter_500Medium,
+          Inter_600SemiBold,
+          Inter_700Bold,
+          Inter_800ExtraBold,
         });
 
         // 3. Preferencia de tema

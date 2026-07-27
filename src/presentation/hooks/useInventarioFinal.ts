@@ -28,19 +28,16 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
   );
   const [cargando, setCargando] = useState(true);
 
-  // Cargar inventario final desde la DB al montar o cuando cambia turnoId
   useEffect(() => {
     let cancelado = false;
 
     async function cargarDesdeDB() {
       try {
-        setCargando(true);
         const inventarioFinal = await TurnoRepository.getInventario(turnoId, 'final');
 
         if (cancelado) return;
 
         if (inventarioFinal.length > 0) {
-          // Mapear los productos con las cantidades guardadas en la DB
           setItems(
             productos.map((p) => {
               const guardado = inventarioFinal.find((i) => i.producto_id === p.id);
@@ -54,7 +51,6 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
             })
           );
         } else {
-          // No hay inventario final guardado aún, inicializar en 0
           setItems(productosToItems(productos));
         }
       } catch (e) {
@@ -71,6 +67,9 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
 
     if (productos.length > 0 && turnoId > 0) {
       cargarDesdeDB();
+    } else {
+      // No hay productos o turnoId aún, pero debemos quitar el loader
+      setCargando(false);
     }
 
     return () => {

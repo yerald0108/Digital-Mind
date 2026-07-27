@@ -65,7 +65,6 @@ export function useCuadre(): UseCuadreReturn {
 
       setDatos(nuevosDatos);
 
-      // Si ya hay inventario final calcular automáticamente
       if (inventarioFinal.length > 0) {
         setResultado(calcularCuadre(nuevosDatos));
       }
@@ -78,15 +77,12 @@ export function useCuadre(): UseCuadreReturn {
 
   const guardarInventarioFinal = useCallback(
     async (turnoId: number, items: ItemInventarioTurnoInput[]) => {
-      // Eliminar inventario final anterior si existe
-      const db = await getDatabase();
+      const db = getDatabase();
       await db.runAsync(
         "DELETE FROM inventario_turno WHERE turno_id = ? AND tipo = 'final'",
         [turnoId]
       );
-      // Guardar el nuevo inventario final
       await TurnoRepository.guardarInventario(items);
-      // Recargar todos los datos
       await cargarDatos(turnoId);
     },
     [cargarDatos]
@@ -105,4 +101,4 @@ export function useCuadre(): UseCuadreReturn {
     guardarInventarioFinal,
     calcular,
   };
-}
+};

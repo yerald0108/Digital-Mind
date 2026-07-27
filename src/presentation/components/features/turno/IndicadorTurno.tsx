@@ -1,5 +1,5 @@
 // src/presentation/components/features/turno/IndicadorTurno.tsx
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Turno } from '../../../../domain/entities/Turno';
 import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -10,6 +10,7 @@ interface IndicadorTurnoProps {
   onAbrir: () => void;
   onCerrar: () => void;
   onEditarDias: () => void;
+  cerrando?: boolean;  // ← NUEVA PROP
 }
 
 export function IndicadorTurno({
@@ -17,6 +18,7 @@ export function IndicadorTurno({
   onAbrir,
   onCerrar,
   onEditarDias,
+  cerrando = false,  // ← VALOR POR DEFECTO
 }: IndicadorTurnoProps) {
   const estaAbierto = turno?.estado === 'abierto';
 
@@ -63,6 +65,7 @@ export function IndicadorTurno({
           style={styles.botonEditar}
           onPress={onEditarDias}
           activeOpacity={0.7}
+          disabled={cerrando}
         >
           <MaterialCommunityIcons
             name="pencil-outline"
@@ -82,16 +85,23 @@ export function IndicadorTurno({
 
       {/* Botón cerrar turno */}
       <TouchableOpacity
-        style={styles.botonCerrar}
+        style={[styles.botonCerrar, cerrando && styles.botonCerrarDeshabilitado]}
         onPress={onCerrar}
         activeOpacity={0.8}
+        disabled={cerrando}
       >
-        <MaterialCommunityIcons
-          name="stop-circle-outline"
-          size={18}
-          color={Colors.accentDanger}
-        />
-        <Text style={styles.botonCerrarTexto}>Cerrar turno</Text>
+        {cerrando ? (
+          <ActivityIndicator size="small" color={Colors.accentDanger} />
+        ) : (
+          <MaterialCommunityIcons
+            name="stop-circle-outline"
+            size={18}
+            color={Colors.accentDanger}
+          />
+        )}
+        <Text style={[styles.botonCerrarTexto, cerrando && styles.botonCerrarTextoDeshabilitado]}>
+          {cerrando ? 'Cerrando...' : 'Cerrar turno'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -195,9 +205,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.sm,
   },
+  botonCerrarDeshabilitado: {
+    borderColor: 'rgba(232, 84, 84, 0.15)',
+    opacity: 0.6,
+  },
   botonCerrarTexto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.sm,
     color: Colors.accentDanger,
+  },
+  botonCerrarTextoDeshabilitado: {
+    color: Colors.textDisabled,
   },
 });

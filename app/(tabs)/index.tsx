@@ -36,7 +36,7 @@ type ModalActivo =
 export default function InicioScreen() {
   const { C, accentLine } = useTheme();
   const toast = useToast();
-  const { turno, cargando, abrirTurno, cerrarTurno, actualizarDias } = useTurno();
+  const { turno, cargando, cerrando, abrirTurno, cerrarTurno, actualizarDias } = useTurno();
   const { productos } = useProductos();
   const {
     entradas, salidasFamiliares, cambiosPrecio, mermas,
@@ -146,6 +146,7 @@ export default function InicioScreen() {
             onAbrir={handleSolicitarApertura}
             onCerrar={handleCerrarTurno}
             onEditarDias={() => setModalActivo('editarDias')}
+            cerrando={cerrando}
           />
         )}
 

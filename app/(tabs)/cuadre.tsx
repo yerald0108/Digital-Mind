@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -61,7 +62,7 @@ export default function CuadreScreen() {
 
   const turnoId = turno?.id ?? null;
 
-  const { items, actualizarCantidad, toInputArray } = useInventarioFinal(
+  const { items, cargando: cargandoInventario, actualizarCantidad, toInputArray } = useInventarioFinal(
     productos,
     turnoId ?? 0
   );
@@ -71,7 +72,7 @@ export default function CuadreScreen() {
   }, [turnoId]);
 
   // ── Sin turno ──────────────────────────────────────────────
-  if (cargandoTurno || cargando) {
+  if (cargandoTurno || cargando || cargandoInventario) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centrado}>
@@ -123,9 +124,22 @@ export default function CuadreScreen() {
   };
 
   const handleEliminarTransferencia = async (id: number) => {
-    await MovimientoRepository.eliminarTransferencia(id);
-    await cargarDatos(turno.id);
-    toast.advertencia('Transferencia eliminada', '');
+    Alert.alert(
+      'Eliminar transferencia',
+      '¿Estás seguro? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            await MovimientoRepository.eliminarTransferencia(id);
+            await cargarDatos(turno.id);
+            toast.advertencia('Transferencia eliminada', '');
+          },
+        },
+      ]
+    );
   };
 
   const handleCrearUSD = async (input: RegistroUSDInput) => {
@@ -135,9 +149,22 @@ export default function CuadreScreen() {
   };
 
   const handleEliminarUSD = async (id: number) => {
-    await MovimientoRepository.eliminarRegistroUSD(id);
-    await cargarDatos(turno.id);
-    toast.advertencia('Registro USD eliminado', '');
+    Alert.alert(
+      'Eliminar registro USD',
+      '¿Estás seguro? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            await MovimientoRepository.eliminarRegistroUSD(id);
+            await cargarDatos(turno.id);
+            toast.advertencia('Registro USD eliminado', '');
+          },
+        },
+      ]
+    );
   };
 
   const handleCrearGasto = async (input: GastoInput) => {
@@ -147,9 +174,22 @@ export default function CuadreScreen() {
   };
 
   const handleEliminarGasto = async (id: number) => {
-    await MovimientoRepository.eliminarGasto(id);
-    await cargarDatos(turno.id);
-    toast.advertencia('Gasto eliminado', '');
+    Alert.alert(
+      'Eliminar gasto',
+      '¿Estás seguro? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            await MovimientoRepository.eliminarGasto(id);
+            await cargarDatos(turno.id);
+            toast.advertencia('Gasto eliminado', '');
+          },
+        },
+      ]
+    );
   };
 
   const handleGuardarCajaDia = async (input: CajaDiaInput) => {
@@ -287,17 +327,59 @@ export default function CuadreScreen() {
         )}
 
         {seccionActiva === 'resultado' && !resultado && (
-          <View style={styles.sinResultado}>
-            <MaterialCommunityIcons
-              name="calculator-variant-outline"
-              size={48}
-              color={Colors.textDisabled}
-            />
-            <Text style={styles.sinResultadoTexto}>
-              Completa las secciones y toca "Calcular" para ver el resultado.
-            </Text>
-          </View>
-        )}
+  <View style={styles.checklistContainer}>
+    <Text style={styles.checklistTitulo}>Para calcular el cuadre necesitas:</Text>
+
+    <View style={styles.checklistItem}>
+      <MaterialCommunityIcons
+        name={datos && datos.inventarioFinal.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
+        size={20}
+        color={datos && datos.inventarioFinal.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+      />
+      <Text style={[
+        styles.checklistTexto,
+        datos && datos.inventarioFinal.length > 0 && styles.checklistCompletado
+      ]}>
+        Inventario final{datos && datos.inventarioFinal.length > 0 ? ' (completado)' : ' (pendiente)'}
+      </Text>
+    </View>
+
+    <View style={styles.checklistItem}>
+      <MaterialCommunityIcons
+        name={datos && datos.cajaPorDia.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
+        size={20}
+        color={datos && datos.cajaPorDia.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+      />
+      <Text style={[
+        styles.checklistTexto,
+        datos && datos.cajaPorDia.length > 0 && styles.checklistCompletado
+      ]}>
+        Caja por dia{datos && datos.cajaPorDia.length > 0 ? ' (completado)' : ' (pendiente)'}
+      </Text>
+    </View>
+
+    <View style={styles.checklistItem}>
+      <MaterialCommunityIcons
+        name="information-outline"
+        size={20}
+        color={Colors.textSecondary}
+      />
+      <Text style={styles.checklistTexto}>
+        Transferencias, USD y Gastos son opcionales
+      </Text>
+    </View>
+
+    <TouchableOpacity
+      style={styles.botonIrInventario}
+      onPress={() => setSeccionActiva('inventario')}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.botonIrInventarioTexto}>
+        Ir a Inventario Final
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
       </ScrollView>
     </SafeAreaView>
   );
@@ -424,5 +506,46 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+    // ── Checklist ──
+  checklistContainer: {
+    backgroundColor: Colors.bgSurface,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  checklistTitulo: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.md,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  checklistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  checklistTexto: {
+    fontFamily: Typography.fontFamily,
+    fontSize: Typography.size.md,
+    color: Colors.textSecondary,
+  },
+  checklistCompletado: {
+    color: Colors.accentSuccess,
+    fontFamily: Typography.fontFamilySemiBold,
+  },
+  botonIrInventario: {
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  botonIrInventarioTexto: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.md,
+    color: Colors.textOnAccent,
   },
 });

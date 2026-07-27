@@ -5,34 +5,30 @@ import { ItemInventarioTurno, ItemInventarioTurnoInput } from '../../domain/enti
 
 export const TurnoRepository = {
 
-  // Obtener el turno actualmente abierto (solo puede haber uno)
   async getTurnoAbierto(): Promise<Turno | null> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getFirstAsync<Turno>(
       "SELECT * FROM turnos WHERE estado = 'abierto' LIMIT 1"
     );
   },
 
-  // Obtener todos los turnos (para historial)
   async getAll(): Promise<Turno[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<Turno>(
       'SELECT * FROM turnos ORDER BY id DESC'
     );
   },
 
-  // Obtener un turno por ID
   async getById(id: number): Promise<Turno | null> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getFirstAsync<Turno>(
       'SELECT * FROM turnos WHERE id = ?',
       [id]
     );
   },
 
-  // Abrir un nuevo turno
   async abrir(input: TurnoInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.runAsync(
       `INSERT INTO turnos (dias_duracion, estado, fecha_apertura)
        VALUES (?, 'abierto', datetime('now'))`,
@@ -41,9 +37,8 @@ export const TurnoRepository = {
     return result.lastInsertRowId;
   },
 
-  // Cerrar el turno activo
   async cerrar(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync(
       `UPDATE turnos
        SET estado = 'cerrado', fecha_cierre = datetime('now')
@@ -52,20 +47,16 @@ export const TurnoRepository = {
     );
   },
 
-  // Actualizar días de duración (editable incluso con turno abierto)
   async actualizarDias(id: number, dias: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync(
       'UPDATE turnos SET dias_duracion = ? WHERE id = ?',
       [dias, id]
     );
   },
 
-  // ── Inventario del turno ──────────────────────────────────
-
-  // Guardar snapshot de inventario (inicial o final)
   async guardarInventario(items: ItemInventarioTurnoInput[]): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     for (const item of items) {
       await db.runAsync(
         `INSERT INTO inventario_turno
@@ -84,12 +75,11 @@ export const TurnoRepository = {
     }
   },
 
-  // Obtener inventario de un turno por tipo
   async getInventario(
     turnoId: number,
     tipo: 'inicial' | 'final'
   ): Promise<ItemInventarioTurno[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<ItemInventarioTurno>(
       `SELECT * FROM inventario_turno
        WHERE turno_id = ? AND tipo = ?

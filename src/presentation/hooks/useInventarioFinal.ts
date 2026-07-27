@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Producto } from '../../domain/entities/Producto';
 import { ItemInventarioTurnoInput } from '../../domain/entities/InventarioTurno';
+import { TurnoRepository } from '../../data/repositories/TurnoRepository';
 
 export interface ItemFinal {
   producto_id: number;
@@ -25,25 +26,57 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
   const [items, setItems] = useState<ItemFinal[]>(() =>
     productosToItems(productos)
   );
+  const [cargando, setCargando] = useState(true);
 
-  // Sincronizar cuando los productos carguen o cambien
+  // Cargar inventario final desde la DB al montar o cuando cambia turnoId
   useEffect(() => {
-    if (productos.length > 0) {
-      setItems((prev) => {
-        // Mantener cantidades ya ingresadas si el producto ya existía
-        return productos.map((p) => {
-          const existente = prev.find((i) => i.producto_id === p.id);
-          return {
-            producto_id: p.id,
-            producto_nombre: p.nombre,
-            precio_costo: p.precio_costo,
-            precio_venta: p.precio_venta,
-            cantidad: existente?.cantidad ?? 0,
-          };
-        });
-      });
+    let cancelado = false;
+
+    async function cargarDesdeDB() {
+      try {
+        setCargando(true);
+        const inventarioFinal = await TurnoRepository.getInventario(turnoId, 'final');
+
+        if (cancelado) return;
+
+        if (inventarioFinal.length > 0) {
+          // Mapear los productos con las cantidades guardadas en la DB
+          setItems(
+            productos.map((p) => {
+              const guardado = inventarioFinal.find((i) => i.producto_id === p.id);
+              return {
+                producto_id: p.id,
+                producto_nombre: p.nombre,
+                precio_costo: p.precio_costo,
+                precio_venta: p.precio_venta,
+                cantidad: guardado?.cantidad ?? 0,
+              };
+            })
+          );
+        } else {
+          // No hay inventario final guardado aún, inicializar en 0
+          setItems(productosToItems(productos));
+        }
+      } catch (e) {
+        console.error('[useInventarioFinal] Error al cargar desde DB:', e);
+        if (!cancelado) {
+          setItems(productosToItems(productos));
+        }
+      } finally {
+        if (!cancelado) {
+          setCargando(false);
+        }
+      }
     }
-  }, [productos]);
+
+    if (productos.length > 0 && turnoId > 0) {
+      cargarDesdeDB();
+    }
+
+    return () => {
+      cancelado = true;
+    };
+  }, [productos, turnoId]);
 
   const actualizarCantidad = useCallback((productoId: number, cantidad: number) => {
     setItems((prev) =>
@@ -70,5 +103,5 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
     setItems(productosToItems(productos));
   }, [productos]);
 
-  return { items, actualizarCantidad, toInputArray, resetear };
+  return { items, cargando, actualizarCantidad, toInputArray, resetear };
 }

@@ -19,7 +19,7 @@ export const MovimientoRepository = {
   // ── ENTRADAS ─────────────────────────────────────────────
 
   async crearEntrada(input: EntradaInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
 
     // Verificar si ya existe una entrada de este producto en este turno
     const existente = await db.getFirstAsync<{ id: number; cantidad: number }>(
@@ -48,7 +48,7 @@ export const MovimientoRepository = {
   },
 
   async getEntradas(turnoId: number): Promise<Entrada[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<Entrada>(
       'SELECT * FROM entradas WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -56,14 +56,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarEntrada(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM entradas WHERE id = ?', [id]);
   },
 
   // ── SALIDAS FAMILIARES ────────────────────────────────────
 
   async crearSalidaFamiliar(input: SalidaFamiliarInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.runAsync(
       `INSERT INTO salidas_familiares
        (turno_id, producto_id, producto_nombre, cantidad, quien_sustrajo, notas)
@@ -75,7 +75,7 @@ export const MovimientoRepository = {
   },
 
   async getSalidasFamiliares(turnoId: number): Promise<SalidaFamiliar[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<SalidaFamiliar>(
       'SELECT * FROM salidas_familiares WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -83,14 +83,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarSalidaFamiliar(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM salidas_familiares WHERE id = ?', [id]);
   },
 
   // ── CAMBIOS DE PRECIO ─────────────────────────────────────
 
   async crearCambioPrecio(input: CambioPrecioInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.runAsync(
       `INSERT INTO cambios_precio
        (turno_id, producto_id, producto_nombre, precio_anterior,
@@ -104,7 +104,7 @@ export const MovimientoRepository = {
   },
 
   async getCambiosPrecio(turnoId: number): Promise<CambioPrecio[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<CambioPrecio>(
       'SELECT * FROM cambios_precio WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -112,14 +112,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarCambioPrecio(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM cambios_precio WHERE id = ?', [id]);
   },
 
   // ── MERMAS ───────────────────────────────────────────────
 
   async crearMerma(input: MermaInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.runAsync(
       `INSERT INTO mermas
        (turno_id, producto_id, producto_nombre, cantidad, tipo, notas)
@@ -131,7 +131,7 @@ export const MovimientoRepository = {
   },
 
   async getMermas(turnoId: number): Promise<Merma[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<Merma>(
       'SELECT * FROM mermas WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -139,14 +139,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarMerma(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM mermas WHERE id = ?', [id]);
   },
 
   // ── TRANSFERENCIAS ────────────────────────────────────────
 
   async crearTransferencia(input: TransferenciaInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.runAsync(
       `INSERT INTO transferencias (turno_id, monto, concepto)
        VALUES (?, ?, ?)`,
@@ -156,7 +156,7 @@ export const MovimientoRepository = {
   },
 
   async getTransferencias(turnoId: number): Promise<Transferencia[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<Transferencia>(
       'SELECT * FROM transferencias WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -164,14 +164,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarTransferencia(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM transferencias WHERE id = ?', [id]);
   },
 
   // ── GASTOS ───────────────────────────────────────────────
 
   async crearGasto(input: GastoInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const diferencia = (input.precio_venta - input.precio_cobrado) * input.cantidad;
     const result = await db.runAsync(
       `INSERT INTO gastos
@@ -186,7 +186,7 @@ export const MovimientoRepository = {
   },
 
   async getGastos(turnoId: number): Promise<Gasto[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<Gasto>(
       'SELECT * FROM gastos WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -194,14 +194,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarGasto(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM gastos WHERE id = ?', [id]);
   },
 
   // ── CAJA POR DÍA ─────────────────────────────────────────
 
   async guardarCajaDia(input: CajaDiaInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     // Si ya existe para ese día, actualizar; si no, insertar
     const existing = await db.getFirstAsync<CajaDia>(
       'SELECT * FROM caja_por_dia WHERE turno_id = ? AND dia_numero = ?',
@@ -225,7 +225,7 @@ export const MovimientoRepository = {
   },
 
   async getCajaPorDia(turnoId: number): Promise<CajaDia[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<CajaDia>(
       'SELECT * FROM caja_por_dia WHERE turno_id = ? ORDER BY dia_numero ASC',
       [turnoId]
@@ -235,7 +235,7 @@ export const MovimientoRepository = {
   // ── REGISTROS USD ─────────────────────────────────────────
 
   async crearRegistroUSD(input: RegistroUSDInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const equivalente_cup = input.cantidad_usd * input.tasa_cambio;
     const result = await db.runAsync(
       `INSERT INTO registros_usd
@@ -247,7 +247,7 @@ export const MovimientoRepository = {
   },
 
   async getRegistrosUSD(turnoId: number): Promise<RegistroUSD[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<RegistroUSD>(
       'SELECT * FROM registros_usd WHERE turno_id = ? ORDER BY fecha ASC',
       [turnoId]
@@ -255,14 +255,14 @@ export const MovimientoRepository = {
   },
 
   async eliminarRegistroUSD(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM registros_usd WHERE id = ?', [id]);
   },
 
   // ── ACTUALIZAR ────────────────────────────────────────────
 
   async actualizarEntrada(id: number, cantidad: number, notas: string | null): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync(
       "UPDATE entradas SET cantidad = ?, notas = ?, fecha = datetime('now') WHERE id = ?",
       [cantidad, notas, id]
@@ -275,7 +275,7 @@ export const MovimientoRepository = {
     quien_sustrajo: string,
     notas: string | null
   ): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync(
       "UPDATE salidas_familiares SET cantidad = ?, quien_sustrajo = ?, notas = ? WHERE id = ?",
       [cantidad, quien_sustrajo, notas, id]
@@ -288,7 +288,7 @@ export const MovimientoRepository = {
     cantidad_existente: number,
     notas: string | null
   ): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync(
       "UPDATE cambios_precio SET precio_nuevo = ?, cantidad_existente = ?, notas = ? WHERE id = ?",
       [precio_nuevo, cantidad_existente, notas, id]
@@ -301,10 +301,27 @@ export const MovimientoRepository = {
     tipo: string,
     notas: string | null
   ): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync(
       "UPDATE mermas SET cantidad = ?, tipo = ?, notas = ? WHERE id = ?",
       [cantidad, tipo, notas, id]
     );
+  },
+
+  // ── LIMPIEZA DE TURNO ─────────────────────────────────────
+  // Elimina todos los movimientos de un turno.
+  // NO elimina inventario_turno: los snapshots inicial/final
+  // se conservan para auditoría y posibles recálculos futuros.
+
+  async eliminarMovimientosDelTurno(turnoId: number): Promise<void> {
+    const db = getDatabase();
+    await db.runAsync('DELETE FROM entradas WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM salidas_familiares WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM cambios_precio WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM mermas WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM transferencias WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM gastos WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM caja_por_dia WHERE turno_id = ?', [turnoId]);
+    await db.runAsync('DELETE FROM registros_usd WHERE turno_id = ?', [turnoId]);
   },
 };

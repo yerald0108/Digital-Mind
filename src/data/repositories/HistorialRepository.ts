@@ -5,7 +5,7 @@ import { HistorialTurno, HistorialTurnoInput } from '../../domain/entities/Histo
 export const HistorialRepository = {
 
   async guardar(input: HistorialTurnoInput): Promise<number> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.runAsync(
       `INSERT INTO historial_turnos (
         turno_id, fecha_apertura, fecha_cierre, dias_duracion,
@@ -38,14 +38,14 @@ export const HistorialRepository = {
   },
 
   async getAll(): Promise<HistorialTurno[]> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getAllAsync<HistorialTurno>(
       'SELECT * FROM historial_turnos ORDER BY creado_en DESC'
     );
   },
 
   async getById(id: number): Promise<HistorialTurno | null> {
-    const db = await getDatabase();
+    const db = getDatabase();
     return await db.getFirstAsync<HistorialTurno>(
       'SELECT * FROM historial_turnos WHERE id = ?',
       [id]
@@ -53,31 +53,16 @@ export const HistorialRepository = {
   },
 
   async eliminar(id: number): Promise<void> {
-    const db = await getDatabase();
+    const db = getDatabase();
     await db.runAsync('DELETE FROM historial_turnos WHERE id = ?', [id]);
   },
 
-  // Verificar si un turno ya tiene historial guardado
   async existeParaTurno(turnoId: number): Promise<boolean> {
-    const db = await getDatabase();
+    const db = getDatabase();
     const result = await db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM historial_turnos WHERE turno_id = ?',
       [turnoId]
     );
     return (result?.count ?? 0) > 0;
-  },
-
-  // Eliminar todos los movimientos de un turno
-  async eliminarTodosDelTurno(turnoId: number): Promise<void> {
-    const db = await getDatabase();
-    await db.runAsync('DELETE FROM entradas WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM salidas_familiares WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM cambios_precio WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM mermas WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM transferencias WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM gastos WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM caja_por_dia WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM registros_usd WHERE turno_id = ?', [turnoId]);
-    await db.runAsync('DELETE FROM inventario_turno WHERE turno_id = ?', [turnoId]);
   },
 };

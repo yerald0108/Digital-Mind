@@ -1,5 +1,5 @@
 // app/(tabs)/cuadre.tsx
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -54,7 +54,7 @@ function formatMonedaLocal(valor: number): string {
 
 export default function CuadreScreen() {
   const toast = useToast();
-  const { turno, cargando: cargandoTurno } = useTurno();
+  const { turno, cargando: cargandoTurno, recargar: recargarTurno } = useTurno();
   const { productos } = useProductos();
   const { datos, resultado, cargando, cargarDatos, guardarInventarioFinal, calcular } =
     useCuadre();
@@ -68,7 +68,16 @@ export default function CuadreScreen() {
     turnoId ?? 0
   );
 
-  // Recargar el turno y los datos cada vez que la pantalla recibe el foco.
+  // Recargar el estado del turno cada vez que la pantalla recibe el foco.
+  // Si el turno se cerro desde la pantalla de Inicio, useTurno en esta
+  // pantalla necesita consultar la DB de nuevo para detectar el cambio.
+  useFocusEffect(
+    useCallback(() => {
+      recargarTurno();
+    }, [recargarTurno])
+  );
+
+  // Recargar los datos del cuadre cada vez que la pantalla recibe el foco.
   // Esto resuelve la desincronizacion entre pantallas: si el turno se abrio
   // en la pantalla de Inicio, al navegar a Cuadre se detecta correctamente.
   useFocusEffect(
@@ -79,8 +88,15 @@ export default function CuadreScreen() {
     }, [turnoId, cargarDatos])
   );
 
-  // ── Sin turno ──────────────────────────────────────────────
-  if (cargandoTurno || cargando || cargandoInventario) {
+  // ── Pantalla de carga ─────────────────────────────────────
+  // Solo se muestra el spinner si no hay datos previos.
+  // Si ya hay datos (navegacion entre tabs), la actualizacion
+  // ocurre en segundo plano sin interrumpir la interfaz.
+  if (
+    (cargandoTurno && !turno) ||
+    (cargando && !datos) ||
+    (cargandoInventario && items.length === 0)
+  ) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centrado}>
@@ -90,6 +106,7 @@ export default function CuadreScreen() {
     );
   }
 
+  // ── Sin turno ──────────────────────────────────────────────
   if (!turno || turno.estado !== 'abierto') {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -485,7 +502,9 @@ const styles = StyleSheet.create({
   },
   contenidoPadding: {
     padding: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
+    // Espacio extra al final para que el contenido no quede
+    // detras de la barra de navegacion flotante
+    paddingBottom: 100,
   },
 
   // ── Estados ──

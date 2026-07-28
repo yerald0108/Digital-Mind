@@ -25,7 +25,7 @@ export function useCuadre(): UseCuadreReturn {
 
   const cargarDatos = useCallback(async (turnoId: number) => {
     try {
-      setCargando(true);
+      if (!datos) setCargando(true);
       const [
         inventarioInicial,
         inventarioFinal,

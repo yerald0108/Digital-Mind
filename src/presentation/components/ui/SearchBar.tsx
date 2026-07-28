@@ -5,13 +5,10 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from 'src/constants/theme';
-
-// Nota: este componente vive en ui/ pero se importa desde presentation/components/ui
-// El path relativo depende de desde dónde se importe
+import { useTheme } from '../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../constants/theme';
 
 interface SearchBarProps {
   value: string;
@@ -26,23 +23,24 @@ export function SearchBar({
   onLimpiar,
   placeholder = 'Buscar producto...',
 }: SearchBarProps) {
+  const { C } = useTheme();
   const inputRef = useRef<TextInput>(null);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
       <MaterialCommunityIcons
         name="magnify"
         size={18}
-        color={value ? Colors.accent : Colors.textSecondary}
+        color={value ? C.accent : C.textSecondary}
         style={styles.iconoBuscar}
       />
       <TextInput
         ref={inputRef}
-        style={styles.input}
+        style={[styles.input, { color: C.textPrimary }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={Colors.textDisabled}
+        placeholderTextColor={C.textDisabled}
         returnKeyType="search"
         clearButtonMode="never"
         autoCorrect={false}
@@ -57,7 +55,7 @@ export function SearchBar({
           style={styles.botonLimpiar}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons name="close-circle" size={16} color={Colors.textSecondary} />
+          <MaterialCommunityIcons name="close-circle" size={16} color={C.textSecondary} />
         </TouchableOpacity>
       )}
     </View>
@@ -68,10 +66,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.md,
     height: 44,
@@ -84,7 +80,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.md,
-    color: Colors.textPrimary,
     paddingVertical: 0,
   },
   botonLimpiar: {

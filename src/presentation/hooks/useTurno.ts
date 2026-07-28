@@ -59,7 +59,7 @@ export function useTurno(): UseTurnoReturn {
   const cerrarTurno = useCallback(async () => {
     if (!turno) return;
 
-    setCerrando(true);  // ← NUEVO
+    setCerrando(true);
 
     const db = getDatabase();
 
@@ -134,7 +134,7 @@ export function useTurno(): UseTurnoReturn {
       console.error('[useTurno] Error en cierre de turno (transacción revertida):', e);
       throw e;
     } finally {
-      setCerrando(false);  // ← NUEVO
+      setCerrando(false); 
     }
 
     await recargar();

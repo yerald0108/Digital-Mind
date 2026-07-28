@@ -10,7 +10,7 @@ interface IndicadorTurnoProps {
   onAbrir: () => void;
   onCerrar: () => void;
   onEditarDias: () => void;
-  cerrando?: boolean;  // ← NUEVA PROP
+  cerrando?: boolean; 
 }
 
 export function IndicadorTurno({

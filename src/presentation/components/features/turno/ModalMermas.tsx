@@ -12,7 +12,8 @@ import { SelectorProducto } from '../../ui/SelectorProducto';
 import { Producto } from '../../../../domain/entities/Producto';
 import { Merma, MermaInput, TipoMerma } from '../../../../domain/entities/Merma';
 import { mermaSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatFechaHora } from '../../../../utils/formatters';
 import { z } from 'zod';
 
@@ -43,6 +44,7 @@ export function ModalMermas({
   visible, onClose, turnoId, productos, mermas,
   onCrear, onActualizar, onEliminar,
 }: ModalMermasProps) {
+  const { C } = useTheme();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
@@ -105,7 +107,7 @@ export function ModalMermas({
 
       {mostrarFormulario && (
         <View style={styles.formulario}>
-          <Text style={styles.titulo}>
+          <Text style={[styles.titulo, { color: C.textPrimary }]}>
             {editandoId !== null ? 'Editar merma' : 'Nueva merma'}
           </Text>
 
@@ -117,26 +119,34 @@ export function ModalMermas({
               mostrarPrecio="venta"
             />
           ) : (
-            <View style={styles.productoFijo}>
-              <MaterialCommunityIcons name="package-variant-remove" size={16} color={Colors.accentDanger} />
-              <Text style={styles.productoFijoTexto}>
+            <View style={[styles.productoFijo, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
+              <MaterialCommunityIcons name="package-variant-remove" size={16} color={C.accentDanger} />
+              <Text style={[styles.productoFijoTexto, { color: C.textPrimary }]}>
                 {productoSeleccionado?.nombre ?? ''}
               </Text>
             </View>
           )}
 
           {/* Tipo */}
-          <Text style={styles.tipoLabel}>Tipo de merma</Text>
+          <Text style={[styles.tipoLabel, { color: C.textSecondary }]}>Tipo de merma</Text>
           <View style={styles.tiposRow}>
             {TIPOS_MERMA.map((tipo) => {
               const activo = tipoSeleccionado === tipo.value;
               return (
                 <TouchableOpacity key={tipo.value}
-                  style={[styles.tipoBoton, activo && styles.tipoBotonActivo]}
+                  style={[
+                    styles.tipoBoton,
+                    { backgroundColor: C.bgElevated, borderColor: C.border },
+                    activo && { backgroundColor: `${C.accentDanger}1A`, borderColor: `${C.accentDanger}66` },
+                  ]}
                   onPress={() => setTipoSeleccionado(tipo.value)} activeOpacity={0.7}>
                   <MaterialCommunityIcons name={tipo.icon} size={16}
-                    color={activo ? Colors.accentDanger : Colors.textSecondary} />
-                  <Text style={[styles.tipoTexto, activo && styles.tipoTextoActivo]}>
+                    color={activo ? C.accentDanger : C.textSecondary} />
+                  <Text style={[
+                    styles.tipoTexto,
+                    { color: C.textSecondary },
+                    activo && { color: C.accentDanger },
+                  ]}>
                     {tipo.label}
                   </Text>
                 </TouchableOpacity>
@@ -174,23 +184,25 @@ export function ModalMermas({
       {mermas.length > 0 && (
         <View style={styles.lista}>
           <Divider />
-          <Text style={styles.listaLabel}>{mermas.length} merma{mermas.length !== 1 ? 's' : ''}</Text>
+          <Text style={[styles.listaLabel, { color: C.textSecondary }]}>
+            {mermas.length} merma{mermas.length !== 1 ? 's' : ''}
+          </Text>
           {mermas.map((m) => (
-            <View key={m.id} style={styles.item}>
+            <View key={m.id} style={[styles.item, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
               <View style={styles.itemInfo}>
-                <Text style={styles.itemNombre}>{m.producto_nombre}</Text>
-                <Text style={styles.itemDetalle}>
+                <Text style={[styles.itemNombre, { color: C.textPrimary }]}>{m.producto_nombre}</Text>
+                <Text style={[styles.itemDetalle, { color: C.textSecondary }]}>
                   {m.cantidad} uds · {m.tipo} · {formatFechaHora(m.fecha)}
                 </Text>
-                {m.notas && <Text style={styles.itemNotas}>{m.notas}</Text>}
+                {m.notas && <Text style={[styles.itemNotas, { color: C.textDisabled }]}>{m.notas}</Text>}
               </View>
               <TouchableOpacity onPress={() => abrirEdicion(m)} style={styles.botonEditar}>
-                <MaterialCommunityIcons name="pencil-outline" size={16} color={Colors.accent} />
+                <MaterialCommunityIcons name="pencil-outline" size={16} color={C.accent} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => confirmarEliminar(m.id, m.producto_nombre)}
                 style={styles.botonEliminar}>
-                <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={C.accentDanger} />
               </TouchableOpacity>
             </View>
           ))}
@@ -199,8 +211,8 @@ export function ModalMermas({
 
       {mermas.length === 0 && !mostrarFormulario && (
         <View style={styles.vacio}>
-          <MaterialCommunityIcons name="package-variant-remove" size={40} color={Colors.textDisabled} />
-          <Text style={styles.vacioTexto}>Sin mermas registradas</Text>
+          <MaterialCommunityIcons name="package-variant-remove" size={40} color={C.textDisabled} />
+          <Text style={[styles.vacioTexto, { color: C.textDisabled }]}>Sin mermas registradas</Text>
         </View>
       )}
     </Modal>
@@ -209,25 +221,23 @@ export function ModalMermas({
 
 const styles = StyleSheet.create({
   formulario: { marginTop: Spacing.md },
-  titulo: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.md, color: Colors.textPrimary, marginBottom: Spacing.md },
-  productoFijo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.bgElevated, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  productoFijoTexto: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.md, color: Colors.textPrimary },
-  tipoLabel: { fontFamily: Typography.fontFamilyMedium, fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.xs, letterSpacing: 0.3 },
+  titulo: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.md, marginBottom: Spacing.md },
+  productoFijo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1 },
+  productoFijoTexto: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.md },
+  tipoLabel: { fontFamily: Typography.fontFamilyMedium, fontSize: Typography.size.sm, marginBottom: Spacing.xs, letterSpacing: 0.3 },
   tiposRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-  tipoBoton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, backgroundColor: Colors.bgElevated, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, paddingVertical: Spacing.sm },
-  tipoBotonActivo: { backgroundColor: 'rgba(232,84,84,0.1)', borderColor: 'rgba(232,84,84,0.4)' },
-  tipoTexto: { fontFamily: Typography.fontFamilyMedium, fontSize: Typography.size.sm, color: Colors.textSecondary },
-  tipoTextoActivo: { color: Colors.accentDanger },
+  tipoBoton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, borderRadius: Radius.md, borderWidth: 1, paddingVertical: Spacing.sm },
+  tipoTexto: { fontFamily: Typography.fontFamilyMedium, fontSize: Typography.size.sm },
   botones: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   lista: { marginTop: Spacing.md },
-  listaLabel: { fontFamily: Typography.fontFamilyMedium, fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.md },
-  item: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bgElevated, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, marginBottom: Spacing.sm },
+  listaLabel: { fontFamily: Typography.fontFamilyMedium, fontSize: Typography.size.sm, marginBottom: Spacing.md },
+  item: { flexDirection: 'row', alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, padding: Spacing.md, marginBottom: Spacing.sm },
   itemInfo: { flex: 1 },
-  itemNombre: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.sm, color: Colors.textPrimary },
-  itemDetalle: { fontFamily: Typography.fontFamily, fontSize: Typography.size.xs, color: Colors.textSecondary, marginTop: 2 },
-  itemNotas: { fontFamily: Typography.fontFamily, fontSize: Typography.size.xs, color: Colors.textDisabled, marginTop: 2, fontStyle: 'italic' },
+  itemNombre: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.sm },
+  itemDetalle: { fontFamily: Typography.fontFamily, fontSize: Typography.size.xs, marginTop: 2 },
+  itemNotas: { fontFamily: Typography.fontFamily, fontSize: Typography.size.xs, marginTop: 2, fontStyle: 'italic' },
   botonEditar: { padding: Spacing.xs, marginLeft: Spacing.xs },
   botonEliminar: { padding: Spacing.xs, marginLeft: Spacing.xs },
   vacio: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.md },
-  vacioTexto: { fontFamily: Typography.fontFamily, fontSize: Typography.size.sm, color: Colors.textDisabled },
+  vacioTexto: { fontFamily: Typography.fontFamily, fontSize: Typography.size.sm },
 });

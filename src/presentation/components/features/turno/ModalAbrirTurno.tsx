@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../../constants/theme';
 
 interface ModalAbrirTurnoProps {
   visible: boolean;
   onClose: () => void;
   onConfirmar: (dias: number) => Promise<void>;
-  diasActuales?: number; // para modo edición
+  diasActuales?: number;
   modoEdicion?: boolean;
 }
 
@@ -22,6 +23,7 @@ export function ModalAbrirTurno({
   diasActuales = 1,
   modoEdicion = false,
 }: ModalAbrirTurnoProps) {
+  const { C } = useTheme();
   const [diasSeleccionados, setDiasSeleccionados] = useState(diasActuales);
   const [cargando, setCargando] = useState(false);
 
@@ -43,7 +45,7 @@ export function ModalAbrirTurno({
       title={modoEdicion ? 'Editar duración del turno' : 'Abrir nuevo turno'}
       onClose={onClose}
     >
-      <Text style={styles.descripcion}>
+      <Text style={[styles.descripcion, { color: C.textSecondary }]}>
         {modoEdicion
           ? 'Cambia la duración del turno activo.'
           : 'Selecciona cuántos días durará este turno.'}
@@ -56,14 +58,19 @@ export function ModalAbrirTurno({
           return (
             <TouchableOpacity
               key={dia}
-              style={[styles.opcion, seleccionado && styles.opcionSeleccionada]}
+              style={[
+                styles.opcion,
+                { backgroundColor: C.bgElevated, borderColor: C.border },
+                seleccionado && { backgroundColor: `${C.accent}26`, borderColor: C.accent },
+              ]}
               onPress={() => setDiasSeleccionados(dia)}
               activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.opcionNumero,
-                  seleccionado && styles.opcionNumeroSeleccionado,
+                  { color: C.textSecondary },
+                  seleccionado && { color: C.accent },
                 ]}
               >
                 {dia}
@@ -71,7 +78,8 @@ export function ModalAbrirTurno({
               <Text
                 style={[
                   styles.opcionLabel,
-                  seleccionado && styles.opcionLabelSeleccionado,
+                  { color: C.textDisabled },
+                  seleccionado && { color: C.accent },
                 ]}
               >
                 {dia === 1 ? 'día' : 'días'}
@@ -82,10 +90,10 @@ export function ModalAbrirTurno({
       </View>
 
       {/* Resumen */}
-      <View style={styles.resumen}>
-        <Text style={styles.resumenTexto}>
+      <View style={[styles.resumen, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
+        <Text style={[styles.resumenTexto, { color: C.textSecondary }]}>
           Turno de{' '}
-          <Text style={styles.resumenDestacado}>
+          <Text style={[styles.resumenDestacado, { color: C.accent }]}>
             {diasSeleccionados} {diasSeleccionados === 1 ? 'día' : 'días'}
           </Text>
         </Text>
@@ -116,7 +124,6 @@ const styles = StyleSheet.create({
   descripcion: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
     marginBottom: Spacing.lg,
     lineHeight: 20,
   },
@@ -129,50 +136,32 @@ const styles = StyleSheet.create({
   opcion: {
     width: '30%',
     aspectRatio: 1.2,
-    backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  opcionSeleccionada: {
-    backgroundColor: 'rgba(79, 142, 247, 0.15)',
-    borderColor: Colors.accent,
   },
   opcionNumero: {
     fontFamily: Typography.fontFamilyBold,
     fontSize: Typography.size.xxl,
-    color: Colors.textSecondary,
-  },
-  opcionNumeroSeleccionado: {
-    color: Colors.accent,
   },
   opcionLabel: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textDisabled,
-  },
-  opcionLabelSeleccionado: {
-    color: Colors.accent,
   },
   resumen: {
-    backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
     padding: Spacing.md,
     alignItems: 'center',
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   resumenTexto: {
     fontFamily: Typography.fontFamilyMedium,
     fontSize: Typography.size.md,
-    color: Colors.textSecondary,
   },
   resumenDestacado: {
     fontFamily: Typography.fontFamilyBold,
-    color: Colors.accent,
   },
   botones: {
     flexDirection: 'row',

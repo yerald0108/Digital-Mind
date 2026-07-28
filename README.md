@@ -1098,9 +1098,8 @@ Si el negocio tiene varios empleados con teléfonos diferentes:
 
 Desarrollado por **@yerald.dev**
 
-Aplicación diseñada para negocios locales cubanos que necesitan digitalizar sus procesos de control de inventario y cuadre de caja.
+Aplicación diseñada para negocios locales cubanos que necesitan digitalizar sus procesos de control de inventario y cuadre de caja sin necesidad de conexión a internet.
 
 ---
 
 *Digital/Mind — Versión 1.0.0*
-*Documentación generada junto con Claude (Anthropic)*

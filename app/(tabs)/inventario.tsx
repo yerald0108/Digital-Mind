@@ -12,14 +12,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useProductos } from '../../src/presentation/hooks/useProductos';
 import { useToast } from '../../src/presentation/hooks/useToast';
 import { useBusquedaProductos } from '../../src/presentation/hooks/useBusquedaProductos';
+import { useTheme } from '../../src/presentation/hooks/useTheme';
 import { ModalProducto } from '../../src/presentation/components/features/inventario/ModalProducto';
 import { ListaProductosDraggable } from '../../src/presentation/components/features/inventario/ListaProductosDraggable';
 import { EmptyInventario } from '../../src/presentation/components/features/inventario/EmptyInventario';
 import { SearchBar } from '../../src/presentation/components/ui/SearchBar';
 import { Producto } from '../../src/domain/entities/Producto';
-import { Colors, Typography, Spacing, AccentLine } from '../../src/constants/theme';
+import { Typography, Spacing } from '../../src/constants/theme';
 
 export default function InventarioScreen() {
+  const { C, T, S, accentLine } = useTheme();
   const {
     productos,
     cargando,
@@ -35,7 +37,6 @@ export default function InventarioScreen() {
     useBusquedaProductos(productos);
 
   const [modalVisible, setModalVisible] = useState(false);
-  // null = modo crear, número = índice en la lista para editar
   const [indiceEditar, setIndiceEditar] = useState<number | null>(null);
 
   const handleAgregar = () => {
@@ -44,7 +45,6 @@ export default function InventarioScreen() {
   };
 
   const handleEditar = (producto: Producto) => {
-    // Buscar el índice en la lista COMPLETA (no filtrada)
     const indice = productos.findIndex((p) => p.id === producto.id);
     setIndiceEditar(indice >= 0 ? indice : 0);
     setModalVisible(true);
@@ -94,24 +94,24 @@ export default function InventarioScreen() {
   const totalProductos = productos.length;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.bgPrimary }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.titulo}>Inventario</Text>
-          <View style={styles.accentLine} />
-          <Text style={styles.subtitulo}>
+          <Text style={[styles.titulo, { color: C.textPrimary }]}>Inventario</Text>
+          <View style={[accentLine, { backgroundColor: C.accent }]} />
+          <Text style={[styles.subtitulo, { color: C.textSecondary }]}>
             {totalProductos === 0
               ? 'Sin productos registrados'
               : `${totalProductos} producto${totalProductos !== 1 ? 's' : ''}`}
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.botonAgregar}
+          style={[styles.botonAgregar, { backgroundColor: C.accent }]}
           onPress={handleAgregar}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="plus" size={22} color={Colors.textOnAccent} />
+          <MaterialCommunityIcons name="plus" size={22} color={C.textOnAccent} />
         </TouchableOpacity>
       </View>
 
@@ -128,8 +128,8 @@ export default function InventarioScreen() {
       {/* Sin resultados de búsqueda */}
       {hayQuery && resultados.length === 0 && (
         <View style={styles.sinResultados}>
-          <MaterialCommunityIcons name="magnify-close" size={40} color={Colors.textDisabled} />
-          <Text style={styles.sinResultadosTexto}>
+          <MaterialCommunityIcons name="magnify-close" size={40} color={C.textDisabled} />
+          <Text style={[styles.sinResultadosTexto, { color: C.textSecondary }]}>
             Sin resultados para "{query}"
           </Text>
         </View>
@@ -138,16 +138,16 @@ export default function InventarioScreen() {
       {/* Contenido */}
       {cargando ? (
         <View style={styles.centrado}>
-          <ActivityIndicator size="large" color={Colors.accent} />
+          <ActivityIndicator size="large" color={C.accent} />
         </View>
       ) : error ? (
         <View style={styles.centrado}>
           <MaterialCommunityIcons
             name="alert-circle-outline"
             size={48}
-            color={Colors.accentDanger}
+            color={C.accentDanger}
           />
-          <Text style={styles.errorTexto}>{error}</Text>
+          <Text style={[styles.errorTexto, { color: C.accentDanger }]}>{error}</Text>
         </View>
       ) : totalProductos === 0 ? (
         <EmptyInventario onAgregar={handleAgregar} />
@@ -158,9 +158,9 @@ export default function InventarioScreen() {
               <MaterialCommunityIcons
                 name="drag-vertical"
                 size={14}
-                color={Colors.textDisabled}
+                color={C.textDisabled}
               />
-              <Text style={styles.hintTexto}>
+              <Text style={[styles.hintTexto, { color: C.textDisabled }]}>
                 Mantén y arrastra para reordenar
               </Text>
             </View>
@@ -179,7 +179,6 @@ export default function InventarioScreen() {
         visible={modalVisible}
         onClose={handleCerrarModal}
         onGuardar={handleGuardar}
-        // Modo carrusel solo al editar
         productos={indiceEditar !== null ? productos : []}
         productoEditar={indiceEditar !== null ? productos[indiceEditar] : null}
         indiceInicial={indiceEditar ?? 0}
@@ -189,7 +188,7 @@ export default function InventarioScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgPrimary },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -201,19 +200,15 @@ const styles = StyleSheet.create({
   titulo: {
     fontFamily: Typography.fontFamilyBold,
     fontSize: Typography.size.xxl,
-    color: Colors.textPrimary,
   },
-  accentLine: { ...AccentLine },
   subtitulo: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
   },
   botonAgregar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.xs,
@@ -226,7 +221,6 @@ const styles = StyleSheet.create({
   sinResultadosTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.md,
-    color: Colors.textSecondary,
     textAlign: 'center',
   },
   hintArrastre: {
@@ -239,7 +233,6 @@ const styles = StyleSheet.create({
   hintTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textDisabled,
   },
   centrado: {
     flex: 1,
@@ -250,7 +243,6 @@ const styles = StyleSheet.create({
   errorTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.md,
-    color: Colors.accentDanger,
     textAlign: 'center',
   },
 });

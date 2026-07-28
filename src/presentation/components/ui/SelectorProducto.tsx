@@ -9,9 +9,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Producto } from 'src/domain/entities/Producto';
-import { Colors, Typography, Spacing, Radius } from 'src/constants/theme';
-import { formatMoneda } from 'src/utils/formatters';
+import { Producto } from '../../../domain/entities/Producto';
+import { useTheme } from '../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../constants/theme';
+import { formatMoneda } from '../../../utils/formatters';
 
 interface SelectorProductoProps {
   productos: Producto[];
@@ -28,6 +29,7 @@ export function SelectorProducto({
   label = 'Producto',
   mostrarPrecio = 'venta',
 }: SelectorProductoProps) {
+  const { C } = useTheme();
   const [abierto, setAbierto] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -48,24 +50,29 @@ export function SelectorProducto({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: C.textSecondary }]}>{label}</Text>
 
       {/* Botón selector */}
       <TouchableOpacity
-        style={[styles.selector, abierto && styles.selectorAbierto]}
+        style={[
+          styles.selector,
+          { backgroundColor: C.bgInput, borderColor: C.border },
+          abierto && { borderColor: C.accent, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+        ]}
         onPress={() => setAbierto(!abierto)}
         activeOpacity={0.8}
       >
         <MaterialCommunityIcons
           name="package-variant-closed"
           size={16}
-          color={seleccionado ? Colors.accent : Colors.textSecondary}
+          color={seleccionado ? C.accent : C.textSecondary}
           style={styles.selectorIcono}
         />
         <Text
           style={[
             styles.selectorTexto,
-            !seleccionado && styles.placeholder,
+            { color: C.textPrimary },
+            !seleccionado && { color: C.textDisabled },
           ]}
           numberOfLines={1}
         >
@@ -74,25 +81,25 @@ export function SelectorProducto({
         <MaterialCommunityIcons
           name={abierto ? 'chevron-up' : 'chevron-down'}
           size={18}
-          color={Colors.textSecondary}
+          color={C.textSecondary}
         />
       </TouchableOpacity>
 
       {/* Precio del seleccionado */}
       {seleccionado && !abierto && (
-        <View style={styles.precioSeleccionado}>
+        <View style={[styles.precioSeleccionado, { backgroundColor: `${C.accent}0F`, borderColor: `${C.accent}26` }]}>
           {(mostrarPrecio === 'costo' || mostrarPrecio === 'ambos') && (
-            <Text style={styles.precioItem}>
+            <Text style={[styles.precioItem, { color: C.textSecondary }]}>
               Costo:{' '}
-              <Text style={styles.precioValor}>
+              <Text style={[styles.precioValor, { color: C.accent }]}>
                 {formatMoneda(seleccionado.precio_costo)}
               </Text>
             </Text>
           )}
           {(mostrarPrecio === 'venta' || mostrarPrecio === 'ambos') && (
-            <Text style={styles.precioItem}>
+            <Text style={[styles.precioItem, { color: C.textSecondary }]}>
               Venta:{' '}
-              <Text style={styles.precioValor}>
+              <Text style={[styles.precioValor, { color: C.accent }]}>
                 {formatMoneda(seleccionado.precio_venta)}
               </Text>
             </Text>
@@ -102,28 +109,28 @@ export function SelectorProducto({
 
       {/* Dropdown con búsqueda */}
       {abierto && (
-        <View style={styles.dropdown}>
+        <View style={[styles.dropdown, { backgroundColor: C.bgElevated, borderColor: C.accent }]}>
           {/* Buscador */}
-          <View style={styles.buscadorContainer}>
+          <View style={[styles.buscadorContainer, { borderBottomColor: C.divider }]}>
             <MaterialCommunityIcons
               name="magnify"
               size={16}
-              color={Colors.textSecondary}
+              color={C.textSecondary}
               style={styles.buscadorIcono}
             />
             <TextInput
-              style={styles.buscadorInput}
+              style={[styles.buscadorInput, { color: C.textPrimary }]}
               value={query}
               onChangeText={setQuery}
               placeholder="Buscar producto..."
-              placeholderTextColor={Colors.textDisabled}
+              placeholderTextColor={C.textDisabled}
               autoFocus
               autoCorrect={false}
               autoCapitalize="none"
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => setQuery('')} style={styles.limpiarBtn}>
-                <MaterialCommunityIcons name="close-circle" size={14} color={Colors.textSecondary} />
+                <MaterialCommunityIcons name="close-circle" size={14} color={C.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -132,7 +139,7 @@ export function SelectorProducto({
           <ScrollView style={styles.lista} nestedScrollEnabled keyboardShouldPersistTaps="handled">
             {filtrados.length === 0 ? (
               <View style={styles.sinResultados}>
-                <Text style={styles.sinResultadosTexto}>
+                <Text style={[styles.sinResultadosTexto, { color: C.textDisabled }]}>
                   Sin resultados para "{query}"
                 </Text>
               </View>
@@ -142,22 +149,30 @@ export function SelectorProducto({
                 return (
                   <TouchableOpacity
                     key={p.id}
-                    style={[styles.item, esSeleccionado && styles.itemSeleccionado]}
+                    style={[
+                      styles.item,
+                      { borderBottomColor: C.divider },
+                      esSeleccionado && { backgroundColor: `${C.accent}14` },
+                    ]}
                     onPress={() => handleSeleccionar(p)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.itemInfo}>
-                      <Text style={[styles.itemNombre, esSeleccionado && styles.itemNombreSeleccionado]}>
+                      <Text style={[
+                        styles.itemNombre,
+                        { color: C.textPrimary },
+                        esSeleccionado && { color: C.accent },
+                      ]}>
                         {p.nombre}
                       </Text>
                       <View style={styles.itemPrecios}>
                         {mostrarPrecio !== 'venta' && (
-                          <Text style={styles.itemPrecio}>
+                          <Text style={[styles.itemPrecio, { color: C.textSecondary }]}>
                             C: {formatMoneda(p.precio_costo)}
                           </Text>
                         )}
                         {mostrarPrecio !== 'costo' && (
-                          <Text style={styles.itemPrecio}>
+                          <Text style={[styles.itemPrecio, { color: C.textSecondary }]}>
                             V: {formatMoneda(p.precio_venta)}
                           </Text>
                         )}
@@ -167,7 +182,7 @@ export function SelectorProducto({
                       <MaterialCommunityIcons
                         name="check-circle"
                         size={18}
-                        color={Colors.accent}
+                        color={C.accent}
                       />
                     )}
                   </TouchableOpacity>
@@ -188,25 +203,17 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: Typography.fontFamilyMedium,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
     marginBottom: Spacing.xs,
     letterSpacing: 0.3,
   },
   selector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgInput,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
     minHeight: 48,
-  },
-  selectorAbierto: {
-    borderColor: Colors.accent,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
   },
   selectorIcono: {
     marginRight: Spacing.sm,
@@ -215,36 +222,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.md,
-    color: Colors.textPrimary,
-  },
-  placeholder: {
-    color: Colors.textDisabled,
   },
   precioSeleccionado: {
     flexDirection: 'row',
     gap: Spacing.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    backgroundColor: 'rgba(79,142,247,0.06)',
     borderRadius: Radius.sm,
     marginTop: Spacing.xs,
     borderWidth: 1,
-    borderColor: 'rgba(79,142,247,0.15)',
   },
   precioItem: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textSecondary,
   },
   precioValor: {
     fontFamily: Typography.fontFamilySemiBold,
-    color: Colors.accent,
   },
   dropdown: {
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: Colors.accent,
     borderBottomLeftRadius: Radius.md,
     borderBottomRightRadius: Radius.md,
     overflow: 'hidden',
@@ -254,7 +251,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
     paddingHorizontal: Spacing.md,
     height: 40,
   },
@@ -265,7 +261,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
-    color: Colors.textPrimary,
     paddingVertical: 0,
   },
   limpiarBtn: {
@@ -280,10 +275,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  itemSeleccionado: {
-    backgroundColor: 'rgba(79,142,247,0.08)',
   },
   itemInfo: {
     flex: 1,
@@ -291,10 +282,6 @@ const styles = StyleSheet.create({
   itemNombre: {
     fontFamily: Typography.fontFamilyMedium,
     fontSize: Typography.size.sm,
-    color: Colors.textPrimary,
-  },
-  itemNombreSeleccionado: {
-    color: Colors.accent,
   },
   itemPrecios: {
     flexDirection: 'row',
@@ -304,7 +291,6 @@ const styles = StyleSheet.create({
   itemPrecio: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textSecondary,
   },
   sinResultados: {
     padding: Spacing.lg,
@@ -313,6 +299,5 @@ const styles = StyleSheet.create({
   sinResultadosTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
-    color: Colors.textDisabled,
   },
 });

@@ -1,7 +1,8 @@
 // src/presentation/components/features/turno/BotonesMovimientos.tsx
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../../constants/theme';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -37,15 +38,23 @@ export function BotonesMovimientos({
   onCambiosPrecio,
   onMermas,
 }: BotonesMovimientosProps) {
+  const { C } = useTheme();
+
+  // Usamos los colores del tema para los estados, con transparencia calculada
+  const azul = C.accent;
+  const ambar = C.accentWarning;
+  const purpura = C.accentInfo;
+  const rojo = C.accentDanger;
+
   const botones: (BotonMovimientoConfig & { onPress: () => void })[] = [
     {
       id: 'entradas',
       label: 'Entradas',
       sublabel: 'Productos que entran',
       icon: 'package-down',
-      color: '#4F8EF7',
-      bgColor: 'rgba(79,142,247,0.08)',
-      borderColor: 'rgba(79,142,247,0.25)',
+      color: azul,
+      bgColor: `${azul}14`,
+      borderColor: `${azul}40`,
       contador: contadorEntradas,
       onPress: onEntradas,
     },
@@ -54,9 +63,9 @@ export function BotonesMovimientos({
       label: 'Salidas familiares',
       sublabel: 'Sustracciones del turno',
       icon: 'account-arrow-right-outline',
-      color: '#F0B429',
-      bgColor: 'rgba(240,180,41,0.08)',
-      borderColor: 'rgba(240,180,41,0.25)',
+      color: ambar,
+      bgColor: `${ambar}14`,
+      borderColor: `${ambar}40`,
       contador: contadorSalidas,
       onPress: onSalidas,
     },
@@ -65,9 +74,9 @@ export function BotonesMovimientos({
       label: 'Cambios de precio',
       sublabel: 'Variaciones durante el turno',
       icon: 'tag-edit-outline',
-      color: '#B57BFF',
-      bgColor: 'rgba(181,123,255,0.08)',
-      borderColor: 'rgba(181,123,255,0.25)',
+      color: purpura,
+      bgColor: `${purpura}14`,
+      borderColor: `${purpura}40`,
       contador: contadorCambios,
       onPress: onCambiosPrecio,
     },
@@ -76,9 +85,9 @@ export function BotonesMovimientos({
       label: 'Mermas',
       sublabel: 'Rotos, vencidos u otros',
       icon: 'package-variant-remove',
-      color: '#E85454',
-      bgColor: 'rgba(232,84,84,0.08)',
-      borderColor: 'rgba(232,84,84,0.25)',
+      color: rojo,
+      bgColor: `${rojo}14`,
+      borderColor: `${rojo}40`,
       contador: contadorMermas,
       onPress: onMermas,
     },
@@ -86,7 +95,9 @@ export function BotonesMovimientos({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.seccionLabel}>Movimientos del turno</Text>
+      <Text style={[styles.seccionLabel, { color: C.textSecondary }]}>
+        Movimientos del turno
+      </Text>
       <View style={styles.grid}>
         {botones.map((boton) => (
           <TouchableOpacity
@@ -104,7 +115,9 @@ export function BotonesMovimientos({
             {/* Contador badge */}
             {boton.contador !== undefined && boton.contador > 0 && (
               <View style={[styles.badge, { backgroundColor: boton.color }]}>
-                <Text style={styles.badgeTexto}>{boton.contador}</Text>
+                <Text style={[styles.badgeTexto, { color: C.textOnAccent }]}>
+                  {boton.contador}
+                </Text>
               </View>
             )}
 
@@ -120,7 +133,9 @@ export function BotonesMovimientos({
             <Text style={[styles.botonLabel, { color: boton.color }]}>
               {boton.label}
             </Text>
-            <Text style={styles.botonSublabel}>{boton.sublabel}</Text>
+            <Text style={[styles.botonSublabel, { color: C.textSecondary }]}>
+              {boton.sublabel}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -136,7 +151,6 @@ const styles = StyleSheet.create({
   seccionLabel: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginBottom: Spacing.md,
@@ -169,7 +183,6 @@ const styles = StyleSheet.create({
   badgeTexto: {
     fontFamily: Typography.fontFamilyBold,
     fontSize: Typography.size.xs,
-    color: Colors.textOnAccent,
   },
   icono: {
     marginBottom: Spacing.sm,
@@ -181,7 +194,6 @@ const styles = StyleSheet.create({
   botonSublabel: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
 });

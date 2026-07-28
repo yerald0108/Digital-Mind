@@ -10,7 +10,8 @@ import { Button } from '../../ui/Button';
 import { Divider } from '../../ui/Divider';
 import { Producto } from '../../../../domain/entities/Producto';
 import { productoSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../../constants/theme';
 import { z } from 'zod';
 
 type FormData = z.infer<typeof productoSchema>;
@@ -19,7 +20,6 @@ interface ModalProductoProps {
   visible: boolean;
   onClose: () => void;
   onGuardar: (data: FormData) => Promise<void>;
-  // Para modo edición con carrusel
   productos?: Producto[];
   productoEditar?: Producto | null;
   indiceInicial?: number;
@@ -33,12 +33,12 @@ export function ModalProducto({
   productoEditar,
   indiceInicial = 0,
 }: ModalProductoProps) {
-  // Si hay lista de productos para el carrusel usamos índice
+  const { C } = useTheme();
+
   const esCarrusel = productos.length > 0 && productoEditar !== null;
   const [indiceActual, setIndiceActual] = useState(indiceInicial);
   const [guardado, setGuardado] = useState(false);
 
-  // Producto actual según el modo
   const productoActual = esCarrusel
     ? productos[indiceActual] ?? null
     : productoEditar ?? null;
@@ -65,7 +65,6 @@ export function ModalProducto({
   const precioCosto = watch('precio_costo') || 0;
   const margen = precioVenta - precioCosto;
 
-  // Cargar datos del producto actual
   useEffect(() => {
     if (productoActual) {
       reset({
@@ -80,7 +79,6 @@ export function ModalProducto({
     }
   }, [productoActual?.id, indiceActual]);
 
-  // Sincronizar índice cuando cambia indiceInicial
   useEffect(() => {
     setIndiceActual(indiceInicial);
   }, [indiceInicial]);
@@ -89,7 +87,6 @@ export function ModalProducto({
     try {
       await onGuardar(data);
       setGuardado(true);
-      // En modo carrusel NO cerramos el modal
       if (!esCarrusel) {
         reset();
         onClose();
@@ -126,9 +123,9 @@ export function ModalProducto({
       onClose={handleClose}
       scrollable
     >
-      {/* Navegación carrusel — solo en modo edición con lista */}
+      {/* Navegación carrusel */}
       {esCarrusel && productos.length > 1 && (
-        <View style={styles.carrusel}>
+        <View style={[styles.carrusel, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
           <TouchableOpacity
             style={[styles.carruselBtn, indiceActual === 0 && styles.carruselBtnDisabled]}
             onPress={irAnterior}
@@ -138,19 +135,18 @@ export function ModalProducto({
             <MaterialCommunityIcons
               name="chevron-left"
               size={20}
-              color={indiceActual === 0 ? Colors.textDisabled : Colors.accent}
+              color={indiceActual === 0 ? C.textDisabled : C.accent}
             />
             <Text style={[
               styles.carruselTexto,
-              indiceActual === 0 && styles.carruselTextoDisabled,
+              { color: indiceActual === 0 ? C.textDisabled : C.accent },
             ]}>
               Anterior
             </Text>
           </TouchableOpacity>
 
-          {/* Indicador de posición */}
           <View style={styles.carruselIndicador}>
-            <Text style={styles.carruselPosicion}>
+            <Text style={[styles.carruselPosicion, { color: C.textPrimary }]}>
               {indiceActual + 1} / {productos.length}
             </Text>
             <View style={styles.dotsRow}>
@@ -164,7 +160,8 @@ export function ModalProducto({
                     key={realIndex}
                     style={[
                       styles.dot,
-                      realIndex === indiceActual && styles.dotActivo,
+                      { backgroundColor: C.border },
+                      realIndex === indiceActual && { backgroundColor: C.accent, width: 8, height: 8, borderRadius: 4 },
                     ]}
                   />
                 );
@@ -183,14 +180,14 @@ export function ModalProducto({
           >
             <Text style={[
               styles.carruselTexto,
-              indiceActual === productos.length - 1 && styles.carruselTextoDisabled,
+              { color: indiceActual === productos.length - 1 ? C.textDisabled : C.accent },
             ]}>
               Siguiente
             </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={20}
-              color={indiceActual === productos.length - 1 ? Colors.textDisabled : Colors.accent}
+              color={indiceActual === productos.length - 1 ? C.textDisabled : C.accent}
             />
           </TouchableOpacity>
         </View>
@@ -198,9 +195,9 @@ export function ModalProducto({
 
       {/* Indicador de guardado exitoso */}
       {guardado && (
-        <View style={styles.guardadoBanner}>
-          <MaterialCommunityIcons name="check-circle" size={16} color={Colors.accentSuccess} />
-          <Text style={styles.guardadoTexto}>
+        <View style={[styles.guardadoBanner, { borderColor: 'rgba(52,199,123,0.3)' }]}>
+          <MaterialCommunityIcons name="check-circle" size={16} color={C.accentSuccess} />
+          <Text style={[styles.guardadoTexto, { color: C.accentSuccess }]}>
             Guardado correctamente
           </Text>
         </View>
@@ -223,7 +220,7 @@ export function ModalProducto({
         )}
       />
 
-      {/* Cantidad en existencia */}
+      {/* Cantidad */}
       <Controller
         control={control}
         name="cantidad"
@@ -277,11 +274,11 @@ export function ModalProducto({
       />
 
       {/* Margen */}
-      <View style={styles.margenContainer}>
-        <Text style={styles.margenLabel}>Margen de ganancia</Text>
+      <View style={[styles.margenContainer, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
+        <Text style={[styles.margenLabel, { color: C.textSecondary }]}>Margen de ganancia</Text>
         <Text style={[
           styles.margenValor,
-          { color: margen >= 0 ? Colors.accentSuccess : Colors.accentDanger },
+          { color: margen >= 0 ? C.accentSuccess : C.accentDanger },
         ]}>
           {margen >= 0 ? '+' : ''}{margen.toFixed(2)} CUP
         </Text>
@@ -313,10 +310,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     padding: Spacing.sm,
     marginBottom: Spacing.lg,
   },
@@ -333,10 +328,6 @@ const styles = StyleSheet.create({
   carruselTexto: {
     fontFamily: Typography.fontFamilyMedium,
     fontSize: Typography.size.sm,
-    color: Colors.accent,
-  },
-  carruselTextoDisabled: {
-    color: Colors.textDisabled,
   },
   carruselIndicador: {
     alignItems: 'center',
@@ -345,7 +336,6 @@ const styles = StyleSheet.create({
   carruselPosicion: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.sm,
-    color: Colors.textPrimary,
   },
   dotsRow: {
     flexDirection: 'row',
@@ -356,13 +346,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.border,
-  },
-  dotActivo: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accent,
   },
   guardadoBanner: {
     flexDirection: 'row',
@@ -373,28 +356,23 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(52,199,123,0.3)',
   },
   guardadoTexto: {
     fontFamily: Typography.fontFamilyMedium,
     fontSize: Typography.size.sm,
-    color: Colors.accentSuccess,
   },
   margenContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   margenLabel: {
     fontFamily: Typography.fontFamilyMedium,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
   },
   margenValor: {
     fontFamily: Typography.fontFamilyBold,

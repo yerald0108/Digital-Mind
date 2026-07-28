@@ -7,7 +7,6 @@
 // - Dinero esperado = ventas calculadas de productos - gastos
 // - Diferencia = real - esperado
 // ============================================================
-
 import { ItemInventarioTurno } from '../entities/InventarioTurno';
 import { Entrada } from '../entities/Entrada';
 import { SalidaFamiliar } from '../entities/SalidaFamiliar';

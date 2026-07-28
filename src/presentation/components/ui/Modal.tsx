@@ -10,7 +10,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
+import { useTheme } from '../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 
 interface ModalProps {
   visible: boolean;
@@ -21,6 +22,8 @@ interface ModalProps {
 }
 
 export function Modal({ visible, title, onClose, children, scrollable = false }: ModalProps) {
+  const { C } = useTheme();
+
   return (
     <RNModal
       visible={visible}
@@ -30,25 +33,18 @@ export function Modal({ visible, title, onClose, children, scrollable = false }:
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={styles.overlay}
+        style={[styles.overlay, { backgroundColor: C.overlay }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.container}>
-          {/* Header del modal */}
+        <View style={[styles.container, { backgroundColor: C.bgSurface, borderColor: C.border }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={[styles.title, { color: C.textPrimary }]}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <MaterialCommunityIcons
-                name="close"
-                size={20}
-                color={Colors.textSecondary}
-              />
+              <MaterialCommunityIcons name="close" size={20} color={C.textSecondary} />
             </TouchableOpacity>
           </View>
-          {/* Línea de acento — firma visual */}
-          <View style={styles.accentLine} />
-          {/* Contenido */}
+          <View style={[styles.accentLine, { backgroundColor: C.accent }]} />
           {scrollable ? (
             <ScrollView
               showsVerticalScrollIndicator={false}
@@ -69,17 +65,14 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: Colors.overlay,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   container: {
-    backgroundColor: Colors.bgSurface,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
     maxHeight: '90%',
     ...Shadows.lg,
   },
@@ -94,7 +87,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Typography.fontFamilyBold,
     fontSize: Typography.size.lg,
-    color: Colors.textPrimary,
     flex: 1,
   },
   closeButton: {
@@ -103,7 +95,6 @@ const styles = StyleSheet.create({
   },
   accentLine: {
     height: 2,
-    backgroundColor: Colors.accent,
     width: 36,
     borderRadius: Radius.full,
     marginHorizontal: Spacing.xl,

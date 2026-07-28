@@ -3,7 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../../constants/theme';
 
 interface AlertaInventarioProps {
   visible: boolean;
@@ -16,6 +17,8 @@ export function AlertaInventario({
   onRevisarInventario,
   onContinuar,
 }: AlertaInventarioProps) {
+  const { C } = useTheme();
+
   return (
     <Modal
       visible={visible}
@@ -26,20 +29,20 @@ export function AlertaInventario({
         <MaterialCommunityIcons
           name="clipboard-list-outline"
           size={52}
-          color={Colors.accentWarning}
+          color={C.accentWarning}
         />
       </View>
 
-      <Text style={styles.titulo}>Revisa el inventario</Text>
+      <Text style={[styles.titulo, { color: C.textPrimary }]}>Revisa el inventario</Text>
 
-      <Text style={styles.descripcion}>
+      <Text style={[styles.descripcion, { color: C.textSecondary }]}>
         Antes de abrir el turno confirma que el inventario esté
         completo y actualizado. La cantidad inicial de cada producto
         se guardará automáticamente al abrir el turno.
       </Text>
 
       {/* Lista de verificación */}
-      <View style={styles.checklist}>
+      <View style={[styles.checklist, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
         {[
           'Todos los productos están registrados',
           'Los precios de venta están actualizados',
@@ -50,20 +53,20 @@ export function AlertaInventario({
             <MaterialCommunityIcons
               name="checkbox-blank-circle-outline"
               size={16}
-              color={Colors.accentWarning}
+              color={C.accentWarning}
             />
-            <Text style={styles.checkTexto}>{item}</Text>
+            <Text style={[styles.checkTexto, { color: C.textSecondary }]}>{item}</Text>
           </View>
         ))}
       </View>
 
-      <View style={styles.aviso}>
+      <View style={[styles.aviso, { backgroundColor: `${C.accent}14`, borderColor: `${C.accent}33` }]}>
         <MaterialCommunityIcons
           name="information-outline"
           size={14}
-          color={Colors.accent}
+          color={C.accent}
         />
-        <Text style={styles.avisoTexto}>
+        <Text style={[styles.avisoTexto, { color: C.accent }]}>
           La cantidad actual de cada producto en el inventario se usará como cantidad inicial del turno para calcular las ventas.
         </Text>
       </View>
@@ -97,26 +100,22 @@ const styles = StyleSheet.create({
   titulo: {
     fontFamily: Typography.fontFamilyBold,
     fontSize: Typography.size.lg,
-    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
   descripcion: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: Spacing.lg,
   },
   checklist: {
-    backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
     padding: Spacing.md,
     gap: Spacing.sm,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   checkItem: {
     flexDirection: 'row',
@@ -126,24 +125,20 @@ const styles = StyleSheet.create({
   checkTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
     flex: 1,
   },
   aviso: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.xs,
-    backgroundColor: 'rgba(79,142,247,0.08)',
     borderRadius: Radius.sm,
     padding: Spacing.sm,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(79,142,247,0.2)',
   },
   avisoTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.accent,
     flex: 1,
     lineHeight: 16,
   },

@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Producto } from '../../../../domain/entities/Producto';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
 
 const ITEM_HEIGHT = 72;
@@ -34,6 +35,7 @@ interface ItemProps {
   panHandlers: ReturnType<typeof PanResponder.create>['panHandlers'];
   isDragging: boolean;
   dragY: Animated.Value;
+  C: ReturnType<typeof useTheme>['C'];
 }
 
 // ── Item individual — memo para evitar re-renders ─────────────
@@ -45,6 +47,7 @@ const ProductoItem = memo(function ProductoItem({
   panHandlers,
   isDragging,
   dragY,
+  C,
 }: ItemProps) {
   const margen = item.precio_venta - item.precio_costo;
 
@@ -67,7 +70,8 @@ const ProductoItem = memo(function ProductoItem({
     <Animated.View
       style={[
         styles.card,
-        isDragging && styles.cardActiva,
+        { backgroundColor: C.bgSurface, borderColor: C.border },
+        isDragging && { backgroundColor: C.bgElevated, borderColor: C.accent },
         isDragging && { transform: [{ translateY: dragY }], zIndex: 999 },
       ]}
     >
@@ -76,48 +80,48 @@ const ProductoItem = memo(function ProductoItem({
         <MaterialCommunityIcons
           name="drag-vertical"
           size={22}
-          color={isDragging ? Colors.accent : Colors.textDisabled}
+          color={isDragging ? C.accent : C.textDisabled}
         />
       </View>
 
       {/* Número orden */}
-      <View style={styles.orden}>
-        <Text style={styles.ordenTexto}>{index + 1}</Text>
+      <View style={[styles.orden, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
+        <Text style={[styles.ordenTexto, { color: C.textSecondary }]}>{index + 1}</Text>
       </View>
 
       {/* Info */}
       <View style={styles.info}>
         <View style={styles.nombreRow}>
-          <Text style={styles.nombre} numberOfLines={1}>
+          <Text style={[styles.nombre, { color: C.textPrimary }]} numberOfLines={1}>
             {item.nombre}
           </Text>
         </View>
         <View style={styles.precios}>
           <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Costo</Text>
-            <Text style={styles.precioCosto}>{formatMoneda(item.precio_costo)}</Text>
+            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Costo</Text>
+            <Text style={[styles.precioCosto, { color: C.textSecondary }]}>{formatMoneda(item.precio_costo)}</Text>
           </View>
-          <View style={styles.separador} />
+          <View style={[styles.separador, { backgroundColor: C.border }]} />
           <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Venta</Text>
-            <Text style={styles.precioVenta}>{formatMoneda(item.precio_venta)}</Text>
+            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Venta</Text>
+            <Text style={[styles.precioVenta, { color: C.accent }]}>{formatMoneda(item.precio_venta)}</Text>
           </View>
-          <View style={styles.separador} />
+          <View style={[styles.separador, { backgroundColor: C.border }]} />
           <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Margen</Text>
+            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Margen</Text>
             <Text
               style={[
                 styles.margen,
-                { color: margen >= 0 ? Colors.accentSuccess : Colors.accentDanger },
+                { color: margen >= 0 ? C.accentSuccess : C.accentDanger },
               ]}
             >
               {margen >= 0 ? '+' : ''}{margen.toFixed(2)}
             </Text>
           </View>
-          <View style={styles.separador} />
+          <View style={[styles.separador, { backgroundColor: C.border }]} />
           <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Cantidad</Text>
-            <Text style={styles.cantidadTexto}>{item.cantidad} uds</Text>
+            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Cantidad</Text>
+            <Text style={[styles.cantidadTexto, { color: C.accent }]}>{item.cantidad} uds</Text>
           </View>
         </View>
       </View>
@@ -125,11 +129,11 @@ const ProductoItem = memo(function ProductoItem({
       {/* Acciones */}
       <View style={styles.acciones}>
         <TouchableOpacity
-          style={styles.botonAccion}
+          style={[styles.botonAccion, { backgroundColor: C.bgElevated, borderColor: C.border }]}
           onPress={() => onEditar(item)}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons name="pencil-outline" size={16} color={Colors.accent} />
+          <MaterialCommunityIcons name="pencil-outline" size={16} color={C.accent} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.botonAccion, styles.botonEliminar]}
@@ -139,7 +143,7 @@ const ProductoItem = memo(function ProductoItem({
           <MaterialCommunityIcons
             name="trash-can-outline"
             size={16}
-            color={Colors.accentDanger}
+            color={C.accentDanger}
           />
         </TouchableOpacity>
       </View>
@@ -154,13 +158,13 @@ export function ListaProductosDraggable({
   onEliminar,
   onReordenar,
 }: ListaProductosDraggableProps) {
+  const { C } = useTheme();
   const [lista, setLista] = useState<Producto[]>(productos);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const dragY = useRef(new Animated.Value(0)).current;
   const currentIndex = useRef(-1);
   const listaRef = useRef<Producto[]>(productos);
 
-  // Sincronizar cuando cambian productos desde el padre (solo sin arrastre)
   useEffect(() => {
     if (draggingId === null) {
       setLista(productos);
@@ -192,17 +196,14 @@ export function ListaProductosDraggable({
           );
 
           if (newTarget !== currentIndex.current) {
-            // Reordenar en ref y estado sin afectar el render del padre
             const next = [...listaRef.current];
             const [moved] = next.splice(currentIndex.current, 1);
             next.splice(newTarget, 0, moved);
             listaRef.current = next;
             currentIndex.current = newTarget;
 
-            // Resetear dragY relativo al nuevo índice
             dragY.setValue(gs.dy - (newTarget - index) * ITEM_TOTAL);
 
-            // Actualizar lista visual
             setLista([...next]);
           }
         },
@@ -210,7 +211,6 @@ export function ListaProductosDraggable({
         onPanResponderRelease: () => {
           dragY.setValue(0);
           setDraggingId(null);
-          // Persistir orden — fuera del render
           const finalLista = listaRef.current;
           setTimeout(() => onReordenar(finalLista), 0);
         },
@@ -242,6 +242,7 @@ export function ListaProductosDraggable({
             panHandlers={panResponder.panHandlers}
             isDragging={isDragging}
             dragY={dragY}
+            C={C}
           />
         );
       })}
@@ -257,22 +258,11 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgSurface,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
     marginBottom: ITEM_MARGIN,
     height: ITEM_HEIGHT,
     paddingRight: Spacing.sm,
-  },
-  cardActiva: {
-    backgroundColor: Colors.bgElevated,
-    borderColor: Colors.accent,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 16,
   },
   handle: {
     paddingHorizontal: Spacing.sm,
@@ -284,17 +274,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: Radius.full,
-    backgroundColor: Colors.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   ordenTexto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.xs,
-    color: Colors.textSecondary,
   },
   info: {
     flex: 1,
@@ -302,7 +289,6 @@ const styles = StyleSheet.create({
   nombre: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.sm,
-    color: Colors.textPrimary,
     marginBottom: 4,
   },
   precios: {
@@ -315,18 +301,15 @@ const styles = StyleSheet.create({
   precioLabel: {
     fontFamily: Typography.fontFamily,
     fontSize: 10,
-    color: Colors.textSecondary,
     marginBottom: 1,
   },
   precioCosto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: 11,
-    color: Colors.textSecondary,
   },
   precioVenta: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: 11,
-    color: Colors.accent,
   },
   margen: {
     fontFamily: Typography.fontFamilySemiBold,
@@ -335,7 +318,6 @@ const styles = StyleSheet.create({
   separador: {
     width: 1,
     height: 20,
-    backgroundColor: Colors.border,
     marginHorizontal: Spacing.sm,
   },
   acciones: {
@@ -347,11 +329,9 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: Radius.sm,
-    backgroundColor: Colors.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   botonEliminar: {
     borderColor: 'rgba(232, 84, 84, 0.3)',
@@ -363,13 +343,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: 4,
   },
-  cantidadBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   cantidadTexto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: 10,
-    color: Colors.accent,
   },
 });

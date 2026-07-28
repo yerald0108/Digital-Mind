@@ -8,7 +8,8 @@ import {
   TextStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../../../constants/theme';
+import { useTheme } from '../../../presentation/hooks/useTheme';
+import { Typography, Spacing, Radius } from '../../../constants/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -39,7 +40,32 @@ export function Button({
   fullWidth = false,
   style,
 }: ButtonProps) {
+  const { C } = useTheme();
   const isDisabled = disabled || loading;
+
+  const variantStyles: Record<ButtonVariant, ViewStyle> = {
+    primary: { backgroundColor: C.accent },
+    secondary: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
+    danger: { backgroundColor: C.accentDanger },
+    ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.accent },
+    success: { backgroundColor: C.accentSuccess },
+  };
+
+  const labelStyles: Record<ButtonVariant, TextStyle> = {
+    primary: { color: C.textOnAccent },
+    secondary: { color: C.textPrimary },
+    danger: { color: C.textOnAccent },
+    ghost: { color: C.accent },
+    success: { color: C.textOnAccent },
+  };
+
+  const iconColors: Record<ButtonVariant, string> = {
+    primary: C.textOnAccent,
+    secondary: C.textPrimary,
+    danger: C.textOnAccent,
+    ghost: C.accent,
+    success: C.textOnAccent,
+  };
 
   return (
     <TouchableOpacity
@@ -48,7 +74,7 @@ export function Button({
       activeOpacity={0.75}
       style={[
         styles.base,
-        styles[variant],
+        variantStyles[variant],
         styles[`size_${size}`],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
@@ -58,7 +84,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'ghost' ? Colors.accent : Colors.textOnAccent}
+          color={variant === 'ghost' ? C.accent : C.textOnAccent}
         />
       ) : (
         <>
@@ -93,22 +119,6 @@ const iconSizes: Record<ButtonSize, number> = {
   lg: 18,
 };
 
-const iconColors: Record<ButtonVariant, string> = {
-  primary: Colors.textOnAccent,
-  secondary: Colors.textPrimary,
-  danger: Colors.textOnAccent,
-  ghost: Colors.accent,
-  success: Colors.textOnAccent,
-};
-
-const labelStyles: Record<ButtonVariant, TextStyle> = {
-  primary: { color: Colors.textOnAccent },
-  secondary: { color: Colors.textPrimary },
-  danger: { color: Colors.textOnAccent },
-  ghost: { color: Colors.accent },
-  success: { color: Colors.textOnAccent },
-};
-
 const labelSizes: Record<ButtonSize, TextStyle> = {
   sm: { fontSize: Typography.size.sm },
   md: { fontSize: Typography.size.md },
@@ -122,27 +132,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: Radius.md,
   },
-  // Variantes
-  primary: {
-    backgroundColor: Colors.accent,
-  },
-  secondary: {
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  danger: {
-    backgroundColor: Colors.accentDanger,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.accent,
-  },
-  success: {
-    backgroundColor: Colors.accentSuccess,
-  },
-  // Tamaños
   size_sm: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs + 2,
@@ -158,14 +147,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 52,
   },
-  // Modificadores
   fullWidth: {
     width: '100%',
   },
   disabled: {
     opacity: 0.45,
   },
-  // Labels
   label: {
     fontFamily: Typography.fontFamilySemiBold,
   },

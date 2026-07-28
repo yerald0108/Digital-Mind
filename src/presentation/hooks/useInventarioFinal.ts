@@ -112,9 +112,5 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
     [items, turnoId]
   );
 
-  const resetear = useCallback(() => {
-    setItems(productosToItems(productos));
-  }, [productos]);
-
-  return { items, cargando, actualizarCantidad, toInputArray, resetear };
+  return { items, cargando, actualizarCantidad, toInputArray };
 }

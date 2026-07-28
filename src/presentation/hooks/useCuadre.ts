@@ -1,5 +1,5 @@
 // src/presentation/hooks/useCuadre.ts
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { getDatabase } from '../../data/database/db';
 import { TurnoRepository } from '../../data/repositories/TurnoRepository';
 import { MovimientoRepository } from '../../data/repositories/MovimientoRepository';
@@ -22,10 +22,11 @@ export function useCuadre(): UseCuadreReturn {
   const [datos, setDatos] = useState<DatosCuadre | null>(null);
   const [resultado, setResultado] = useState<ResultadoCuadre | null>(null);
   const [cargando, setCargando] = useState(false);
+  const datosRef = useRef<DatosCuadre | null>(null);
 
   const cargarDatos = useCallback(async (turnoId: number) => {
     try {
-      if (!datos) setCargando(true);
+      if (!datosRef.current) setCargando(true);
       const [
         inventarioInicial,
         inventarioFinal,
@@ -63,6 +64,7 @@ export function useCuadre(): UseCuadreReturn {
         registrosUSD,
       };
 
+      datosRef.current = nuevosDatos;
       setDatos(nuevosDatos);
 
       if (inventarioFinal.length > 0) {

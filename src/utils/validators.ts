@@ -58,7 +58,13 @@ export const gastoSchema = z.object({
   precio_cobrado: z.number().min(0, 'No puede ser negativo'),
   cantidad: z.number().min(0.01, 'La cantidad debe ser mayor a 0'),
   notas: z.string().optional(),
-});
+}).refine(
+  (data) => data.precio_cobrado <= data.precio_venta,
+  {
+    message: 'El precio cobrado no puede superar el precio de venta',
+    path: ['precio_cobrado'],
+  }
+);
 
 // Schema para registro USD
 export const usdSchema = z.object({

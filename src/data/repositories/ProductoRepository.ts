@@ -102,11 +102,4 @@ export const ProductoRepository = {
     }
   },
 
-  async sumarCantidad(id: number, cantidad: number): Promise<void> {
-    const db = getDatabase();
-    await db.runAsync(
-      "UPDATE productos SET cantidad = cantidad + ?, actualizado_en = datetime('now') WHERE id = ?",
-      [cantidad, id]
-    );
-  },
 };

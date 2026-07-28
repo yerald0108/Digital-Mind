@@ -1,5 +1,5 @@
 // src/presentation/components/features/turno/ModalAbrirTurno.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
@@ -26,6 +26,12 @@ export function ModalAbrirTurno({
   const { C } = useTheme();
   const [diasSeleccionados, setDiasSeleccionados] = useState(diasActuales);
   const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setDiasSeleccionados(diasActuales);
+    }
+  }, [visible, diasActuales]);
 
   const handleConfirmar = async () => {
     try {

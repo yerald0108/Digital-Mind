@@ -26,6 +26,7 @@ import { SeccionCajaPorDia } from '../../src/presentation/components/features/cu
 import { ResultadoCuadreView } from '../../src/presentation/components/features/cuadre/ResultadoCuadre';
 import { TransferenciaInput } from '../../src/domain/entities/Transferencia';
 import { RegistroUSDInput } from '../../src/domain/entities/RegistroUSD';
+import { formatMoneda } from '../../src/utils/formatters';
 import { GastoInput } from '../../src/domain/entities/Gasto';
 import { CajaDiaInput } from '../../src/domain/entities/CajaDia';
 import { Colors, Typography, Spacing, AccentLine, Radius } from '../../src/constants/theme';
@@ -44,13 +45,6 @@ const SECCIONES: {
   { id: 'caja', label: 'Caja', icon: 'cash' },
   { id: 'resultado', label: 'Resultado', icon: 'calculator-variant-outline' },
 ];
-
-function formatMonedaLocal(valor: number): string {
-  return `$ ${valor.toLocaleString('es-CU', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 export default function CuadreScreen() {
   const toast = useToast();
@@ -145,7 +139,7 @@ export default function CuadreScreen() {
   const handleCrearTransferencia = async (input: TransferenciaInput) => {
     await MovimientoRepository.crearTransferencia(input);
     await cargarDatos(turno.id);
-    toast.exito('Transferencia agregada', formatMonedaLocal(input.monto));
+    toast.exito('Transferencia agregada', formatMoneda(input.monto));
   };
 
   const handleEliminarTransferencia = async (id: number) => {
@@ -521,18 +515,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
-  },
-  sinResultado: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xxxl,
-    gap: Spacing.lg,
-  },
-  sinResultadoTexto: {
-    fontFamily: Typography.fontFamily,
-    fontSize: Typography.size.md,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
   },
     // ── Checklist ──
   checklistContainer: {

@@ -41,6 +41,7 @@ export function useTurno(): UseTurnoReturn {
 
   const abrirTurno = useCallback(
     async (dias: number) => {
+      if (turno) return;
       const turnoId = await TurnoRepository.abrir({ dias_duracion: dias });
       const productos = await ProductoRepository.getAll();
       const items: ItemInventarioTurnoInput[] = productos.map((p) => ({

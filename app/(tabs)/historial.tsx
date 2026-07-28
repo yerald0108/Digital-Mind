@@ -1,5 +1,5 @@
 // app/(tabs)/historial.tsx
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useHistorial } from '../../src/presentation/hooks/useHistorial';
 import { useToast } from '../../src/presentation/hooks/useToast';
 import { CardHistorial } from '../../src/presentation/components/features/historial/CardHistorial';
@@ -21,15 +23,33 @@ import { formatMoneda } from '../../src/utils/formatters';
 export default function HistorialScreen() {
   const { historial, cargando, recargar, eliminar } = useHistorial();
   const toast = useToast();
+  useFocusEffect(
+    useCallback(() => {
+      recargar();
+    }, [recargar])
+  );
   const [registroSeleccionado, setRegistroSeleccionado] = useState<HistorialTurno | null>(null);
 
-  const handleEliminar = async (id: number) => {
-    try {
-      await eliminar(id);
-      toast.exito('Registro eliminado', 'El registro fue eliminado del historial');
-    } catch {
-      toast.error('Error', 'No se pudo eliminar el registro');
-    }
+  const handleEliminar = (id: number) => {
+    Alert.alert(
+      'Eliminar registro',
+      '¿Estás seguro? Este registro no se puede recuperar.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await eliminar(id);
+              toast.exito('Registro eliminado', 'El registro fue eliminado del historial');
+            } catch {
+              toast.error('Error', 'No se pudo eliminar el registro');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Totales acumulados del historial

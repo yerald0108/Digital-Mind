@@ -47,6 +47,21 @@ export const TurnoRepository = {
     );
   },
 
+  /**
+   * Reabre un turno que fue cerrado.
+   * Se usa exclusivamente durante el rollback del cierre
+   * cuando algo falla y hay que revertir el estado.
+   */
+  async reabrir(id: number): Promise<void> {
+    const db = getDatabase();
+    await db.runAsync(
+      `UPDATE turnos
+       SET estado = 'abierto', fecha_cierre = NULL
+       WHERE id = ?`,
+      [id]
+    );
+  },
+
   async actualizarDias(id: number, dias: number): Promise<void> {
     const db = getDatabase();
     await db.runAsync(

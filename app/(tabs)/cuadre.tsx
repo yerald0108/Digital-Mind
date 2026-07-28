@@ -1,5 +1,5 @@
 // app/(tabs)/cuadre.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useTurno } from '../../src/presentation/hooks/useTurno';
 import { useProductos } from '../../src/presentation/hooks/useProductos';
 import { useCuadre } from '../../src/presentation/hooks/useCuadre';
@@ -67,9 +68,16 @@ export default function CuadreScreen() {
     turnoId ?? 0
   );
 
-  useEffect(() => {
-    if (turnoId) cargarDatos(turnoId);
-  }, [turnoId]);
+  // Recargar el turno y los datos cada vez que la pantalla recibe el foco.
+  // Esto resuelve la desincronizacion entre pantallas: si el turno se abrio
+  // en la pantalla de Inicio, al navegar a Cuadre se detecta correctamente.
+  useFocusEffect(
+    useCallback(() => {
+      if (turnoId) {
+        cargarDatos(turnoId);
+      }
+    }, [turnoId, cargarDatos])
+  );
 
   // ── Sin turno ──────────────────────────────────────────────
   if (cargandoTurno || cargando || cargandoInventario) {

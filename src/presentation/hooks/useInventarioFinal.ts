@@ -68,14 +68,28 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
     if (productos.length > 0 && turnoId > 0) {
       cargarDesdeDB();
     } else {
-      // No hay productos o turnoId aún, pero debemos quitar el loader
+      // No hay productos o turnoId aun, pero debemos quitar el loader
       setCargando(false);
     }
 
     return () => {
       cancelado = true;
     };
-  }, [productos, turnoId]);
+  }, [
+    productos,
+    turnoId,
+    // Dependencia derivada del contenido de productos.
+    // Si algun producto cambia de id, nombre, precio_costo o precio_venta,
+    // el efecto se re-ejecuta y la lista de inventario final se actualiza.
+    JSON.stringify(
+      productos.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        precio_costo: p.precio_costo,
+        precio_venta: p.precio_venta,
+      }))
+    ),
+  ]);
 
   const actualizarCantidad = useCallback((productoId: number, cantidad: number) => {
     setItems((prev) =>

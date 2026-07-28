@@ -28,25 +28,49 @@ export const ProductoRepository = {
     return result.lastInsertRowId;
   },
 
+  /**
+   * Actualiza un producto solo con los campos enviados.
+   * Los campos no incluidos en input mantienen su valor actual.
+   * Soporta correctamente valores 0, false, y string vacio.
+   */
   async update(id: number, input: Partial<ProductoInput>): Promise<void> {
     const db = getDatabase();
+
+    // Construir dinamicamente solo los campos enviados
+    const campos: string[] = [];
+    const valores: any[] = [];
+
+    if (input.nombre !== undefined) {
+      campos.push('nombre = ?');
+      valores.push(input.nombre);
+    }
+    if (input.precio_costo !== undefined) {
+      campos.push('precio_costo = ?');
+      valores.push(input.precio_costo);
+    }
+    if (input.precio_venta !== undefined) {
+      campos.push('precio_venta = ?');
+      valores.push(input.precio_venta);
+    }
+    if (input.cantidad !== undefined) {
+      campos.push('cantidad = ?');
+      valores.push(input.cantidad);
+    }
+    if (input.orden !== undefined) {
+      campos.push('orden = ?');
+      valores.push(input.orden);
+    }
+
+    // Si no se envio ningun campo, no ejecutar la query
+    if (campos.length === 0) return;
+
+    // Siempre actualizar la fecha de modificacion
+    campos.push("actualizado_en = datetime('now')");
+    valores.push(id);
+
     await db.runAsync(
-      `UPDATE productos
-       SET nombre = COALESCE(?, nombre),
-           precio_costo = COALESCE(?, precio_costo),
-           precio_venta = COALESCE(?, precio_venta),
-           cantidad = COALESCE(?, cantidad),
-           orden = COALESCE(?, orden),
-           actualizado_en = datetime('now')
-       WHERE id = ?`,
-      [
-        input.nombre ?? null,
-        input.precio_costo ?? null,
-        input.precio_venta ?? null,
-        input.cantidad ?? null,
-        input.orden ?? null,
-        id,
-      ]
+      `UPDATE productos SET ${campos.join(', ')} WHERE id = ?`,
+      valores
     );
   },
 

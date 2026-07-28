@@ -18,25 +18,15 @@ export const MovimientoRepository = {
 
   // ── ENTRADAS ─────────────────────────────────────────────
 
+  /**
+   * Crea una nueva entrada de producto.
+   * Siempre inserta un registro independiente para mantener
+   * la trazabilidad completa de cada carga.
+   * La suma de cantidades por producto se calcula en calcularCuadre.ts.
+   */
   async crearEntrada(input: EntradaInput): Promise<number> {
     const db = getDatabase();
 
-    // Verificar si ya existe una entrada de este producto en este turno
-    const existente = await db.getFirstAsync<{ id: number; cantidad: number }>(
-      'SELECT id, cantidad FROM entradas WHERE turno_id = ? AND producto_id = ?',
-      [input.turno_id, input.producto_id]
-    );
-
-    if (existente) {
-      // Sumar a la entrada existente
-      await db.runAsync(
-        'UPDATE entradas SET cantidad = cantidad + ?, fecha = datetime(\'now\') WHERE id = ?',
-        [input.cantidad, existente.id]
-      );
-      return existente.id;
-    }
-
-    // Crear nueva entrada
     const result = await db.runAsync(
       `INSERT INTO entradas
        (turno_id, producto_id, producto_nombre, cantidad, precio_costo, notas)

@@ -40,24 +40,24 @@ export interface ResultadoCuadre {
   resultados_productos: ResultadoProducto[];
 
   // ── Dinero esperado (de las ventas) ──
-  total_ventas_esperado: number;   // suma de lo que debería generar cada producto
-  total_gastos: number;            // descuentos a restar
-  total_esperado: number;          // ventas - gastos
+  total_ventas_esperado: number;
+  total_gastos: number;
+  total_esperado: number;
 
   // ── Dinero real (lo que entró a la caja) ──
-  total_efectivo_caja: number;     // suma de caja por día (efectivo)
-  total_transferencias: number;    // transferencias recibidas
-  total_usd_en_cup: number;        // USD convertidos a CUP
-  total_real: number;              // efectivo + transferencias + USD
+  total_efectivo_caja: number;
+  total_transferencias: number;
+  total_usd_en_cup: number;
+  total_real: number;
 
   // ── Diferencia ──
-  diferencia: number;              // real - esperado
+  diferencia: number;
   estado: 'exacto' | 'sobrante' | 'faltante';
 
   // ── Salarios y ganancias ──
-  salario_mostrador: number;       // 1% de ventas
-  salario_salon: number;           // 0.5% de ventas
-  ganancia_neta_dueno: number;     // ventas - costos - salarios - gastos
+  salario_mostrador: number;
+  salario_salon: number;
+  ganancia_neta_dueno: number;
 }
 
 export interface DatosCuadre {
@@ -80,11 +80,45 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
     transferencias, gastos, cajaPorDia, registrosUSD,
   } = datos;
 
-  // ── Calcular aporte por producto ──────────────────────────
-  const resultados_productos: ResultadoProducto[] = inventarioInicial.map((itemInicial) => {
-    const pid = itemInicial.producto_id;
+  // ── Construir conjunto unico de producto_id ───────────────
+  // Se incluyen productos del inventario inicial, entradas,
+  // salidas familiares y mermas. Asi se cubren productos
+  // nuevos que entraron durante el turno sin stock inicial.
+  const idsProductos = new Set<number>();
 
-    const cantidad_inicial = itemInicial.cantidad;
+  for (const item of inventarioInicial) idsProductos.add(item.producto_id);
+  for (const e of entradas) idsProductos.add(e.producto_id);
+  for (const s of salidasFamiliares) idsProductos.add(s.producto_id);
+  for (const m of mermas) idsProductos.add(m.producto_id);
+
+  // ── Calcular aporte por producto ──────────────────────────
+  const resultados_productos: ResultadoProducto[] = Array.from(idsProductos).map((pid) => {
+    // Datos del inventario inicial (puede no existir si es producto nuevo)
+    const itemInicial = inventarioInicial.find((i) => i.producto_id === pid);
+    const cantidad_inicial = itemInicial?.cantidad ?? 0;
+
+    // Nombre del producto: buscar en inicial, si no en la primera entrada,
+    // si no en salidas, si no en mermas
+    const primeraEntrada = entradas.find((e) => e.producto_id === pid);
+    const primeraSalida = salidasFamiliares.find((s) => s.producto_id === pid);
+    const primeraMerma = mermas.find((m) => m.producto_id === pid);
+
+    const producto_nombre =
+      itemInicial?.producto_nombre ??
+      primeraEntrada?.producto_nombre ??
+      primeraSalida?.producto_nombre ??
+      primeraMerma?.producto_nombre ??
+      'Producto desconocido';
+
+    // Cambios de precio del producto (se necesitan temprano para el fallback de precio_venta)
+    const cambiosDelProducto = cambiosPrecio
+      .filter((c) => c.producto_id === pid)
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+    // Precio de venta inicial: inventario inicial, o primer cambio de precio, o 0
+    const precio_venta_inicial =
+      itemInicial?.precio_venta ??
+      (cambiosDelProducto.length > 0 ? cambiosDelProducto[0].precio_anterior : 0);
 
     const cantidad_entradas = entradas
       .filter((e) => e.producto_id === pid)
@@ -108,18 +142,14 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
     );
 
     // ── Tramos de precio ──
-    const cambiosDelProducto = cambiosPrecio
-      .filter((c) => c.producto_id === pid)
-      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-
     const tramos: TramoPrecio[] = [];
     let vendidaAcumulada = 0;
 
     if (cambiosDelProducto.length === 0) {
       tramos.push({
-        precio_venta: itemInicial.precio_venta,
+        precio_venta: precio_venta_inicial,
         cantidad_vendida_en_tramo: cantidad_vendida,
-        subtotal: redondear(cantidad_vendida * itemInicial.precio_venta),
+        subtotal: redondear(cantidad_vendida * precio_venta_inicial),
       });
     } else {
       const primerCambio = cambiosDelProducto[0];
@@ -132,9 +162,9 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
 
       if (vendidaAntesPrimerCambio > 0) {
         tramos.push({
-          precio_venta: itemInicial.precio_venta,
+          precio_venta: precio_venta_inicial,
           cantidad_vendida_en_tramo: vendidaAntesPrimerCambio,
-          subtotal: redondear(vendidaAntesPrimerCambio * itemInicial.precio_venta),
+          subtotal: redondear(vendidaAntesPrimerCambio * precio_venta_inicial),
         });
         vendidaAcumulada += vendidaAntesPrimerCambio;
       }
@@ -168,7 +198,7 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
 
     return {
       producto_id: pid,
-      producto_nombre: itemInicial.producto_nombre,
+      producto_nombre,
       cantidad_inicial,
       cantidad_entradas,
       cantidad_salidas_familiares,
@@ -189,7 +219,6 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
     gastos.reduce((acc, g) => acc + g.diferencia, 0)
   );
 
-  // Lo que debería haber en caja = ventas - gastos
   const total_esperado = redondear(total_ventas_esperado - total_gastos);
 
   // ── Totales reales (lo que entró a la caja) ───────────────
@@ -205,7 +234,6 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
     registrosUSD.reduce((acc, u) => acc + u.equivalente_cup, 0)
   );
 
-  // Dinero real total = efectivo + transferencias + USD
   const total_real = redondear(
     total_efectivo_caja + total_transferencias + total_usd_en_cup
   );
@@ -224,7 +252,9 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
   const total_costo = redondear(
     resultados_productos.reduce((acc, r) => {
       const itemInicial = inventarioInicial.find((i) => i.producto_id === r.producto_id);
-      return acc + r.cantidad_vendida * (itemInicial?.precio_costo ?? 0);
+      const itemEntrada = entradas.find((e) => e.producto_id === r.producto_id);
+      const precio_costo = itemInicial?.precio_costo ?? itemEntrada?.precio_costo ?? 0;
+      return acc + r.cantidad_vendida * precio_costo;
     }, 0)
   );
 

@@ -162,25 +162,37 @@ export const MovimientoRepository = {
 
   async crearGasto(input: GastoInput): Promise<number> {
     const db = getDatabase();
-    const diferencia = (input.precio_venta - input.precio_cobrado) * input.cantidad;
     const result = await db.runAsync(
       `INSERT INTO gastos
-       (turno_id, producto_id, producto_nombre, precio_venta,
-        precio_cobrado, diferencia, cantidad, notas)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [input.turno_id, input.producto_id ?? null, input.producto_nombre,
-       input.precio_venta, input.precio_cobrado, diferencia,
-       input.cantidad, input.notas ?? null]
+       (turno_id, producto_id, producto_nombre, precio_venta, precio_cobrado,
+        diferencia, cantidad, concepto, monto, notas)
+       VALUES (?, NULL, ?, 0, 0, ?, 1, ?, ?, ?)`,
+      [
+        input.turno_id,
+        input.concepto ?? 'Gasto',   // producto_nombre: fallback si es null
+        input.monto,                 // diferencia = monto
+        input.concepto ?? null,
+        input.monto,
+        input.notas ?? null,
+      ]
     );
     return result.lastInsertRowId;
   },
 
   async getGastos(turnoId: number): Promise<Gasto[]> {
     const db = getDatabase();
-    return await db.getAllAsync<Gasto>(
-      'SELECT * FROM gastos WHERE turno_id = ? ORDER BY fecha ASC',
+    // Leemos concepto y monto; si son null (registros viejos), usamos fallback
+    // a producto_nombre y diferencia respectivamente.
+    const rows = await db.getAllAsync<any>(
+      `SELECT id, turno_id, fecha, notas,
+              COALESCE(concepto, producto_nombre, 'Gasto') AS concepto,
+              COALESCE(NULLIF(monto, 0), diferencia, 0)    AS monto
+       FROM gastos
+       WHERE turno_id = ?
+       ORDER BY fecha ASC`,
       [turnoId]
     );
+    return rows as Gasto[];
   },
 
   async eliminarGasto(id: number): Promise<void> {

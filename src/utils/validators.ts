@@ -51,20 +51,12 @@ export const transferenciaSchema = z.object({
   concepto: z.string().optional(),
 });
 
-// Schema para gasto
+// Schema para gasto (monto directo)
 export const gastoSchema = z.object({
-  producto_nombre: z.string().min(1, 'El nombre del producto es obligatorio'),
-  precio_venta: z.number().min(0, 'No puede ser negativo'),
-  precio_cobrado: z.number().min(0, 'No puede ser negativo'),
-  cantidad: z.number().min(0.01, 'La cantidad debe ser mayor a 0'),
+  concepto: z.string().optional(),
+  monto: z.number({ invalid_type_error: 'Debe ser un número' }).min(0.01, 'El monto debe ser mayor a 0'),
   notas: z.string().optional(),
-}).refine(
-  (data) => data.precio_cobrado <= data.precio_venta,
-  {
-    message: 'El precio cobrado no puede superar el precio de venta',
-    path: ['precio_cobrado'],
-  }
-);
+});
 
 // Schema para registro USD
 export const usdSchema = z.object({

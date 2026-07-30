@@ -1,5 +1,19 @@
 // src/presentation/components/ui/SelectorProducto.tsx
-import { useState, useMemo } from 'react';
+//
+// NOTA IMPORTANTE — por qué cargamos productos aquí y no solo de la prop:
+//
+// Los modales que contienen este componente se montan dentro de un bloque
+// condicional {turno && <Modal productos={productos} />}. Cuando se abre
+// un turno por primera vez, `turno` y `productos` (de useProductos en el
+// padre) cambian casi al mismo tiempo, pero `productos` puede llegar vacío
+// en el primer render si el hook aún está cargando desde SQLite.
+//
+// Para romper esa dependencia, este componente carga los productos
+// directamente desde el repositorio cuando el dropdown se abre.
+// La prop `productos` sigue existiendo como fallback y como fuente de
+// datos cuando ya están disponibles en el padre.
+//
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,15 +21,17 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Producto } from '../../../domain/entities/Producto';
+import { ProductoRepository } from '../../../data/repositories/ProductoRepository';
 import { useTheme } from '../../../presentation/hooks/useTheme';
 import { Typography, Spacing, Radius } from '../../../constants/theme';
 import { formatMoneda } from '../../../utils/formatters';
 
 interface SelectorProductoProps {
-  productos: Producto[];
+  productos: Producto[];          // prop del padre (puede llegar vacía al inicio)
   seleccionado: Producto | null;
   onSeleccionar: (producto: Producto) => void;
   label?: string;
@@ -23,7 +39,7 @@ interface SelectorProductoProps {
 }
 
 export function SelectorProducto({
-  productos,
+  productos: productosProp,
   seleccionado,
   onSeleccionar,
   label = 'Producto',
@@ -32,15 +48,60 @@ export function SelectorProducto({
   const { C } = useTheme();
   const [abierto, setAbierto] = useState(false);
   const [query, setQuery] = useState('');
+  const inputRef = useRef<TextInput>(null);
+
+  // Lista de productos que realmente se muestra en el dropdown.
+  // Se inicializa con la prop; si está vacía cuando se abre el dropdown,
+  // se carga directamente desde SQLite.
+  const [productosLocales, setProductosLocales] = useState<Producto[]>(productosProp);
+  const [cargandoLocal, setCargandoLocal] = useState(false);
+
+  // Si la prop se actualiza después del montado (padre terminó de cargar),
+  // sincronizamos el estado local sólo cuando el dropdown está cerrado para
+  // no interrumpir al usuario.
+  useEffect(() => {
+    if (!abierto && productosProp.length > 0) {
+      setProductosLocales(productosProp);
+    }
+  }, [productosProp, abierto]);
+
+  // Cuando se abre el dropdown: si no hay productos aún, cargar desde SQLite.
+  const cargarSiVacio = useCallback(async () => {
+    if (productosLocales.length > 0) return;   // ya hay datos, no hace falta
+    try {
+      setCargandoLocal(true);
+      const data = await ProductoRepository.getAll();
+      setProductosLocales(data);
+    } catch (e) {
+      console.error('[SelectorProducto] Error al cargar productos:', e);
+    } finally {
+      setCargandoLocal(false);
+    }
+  }, [productosLocales.length]);
+
+  // Abrir dropdown y cargar si es necesario
+  const handleToggle = useCallback(() => {
+    const nuevoEstado = !abierto;
+    setAbierto(nuevoEstado);
+    if (nuevoEstado) cargarSiVacio();
+  }, [abierto, cargarSiVacio]);
+
+  // Foco diferido para evitar el race condition de Android con RNModal
+  useEffect(() => {
+    if (abierto) {
+      const t = setTimeout(() => inputRef.current?.focus(), 100);
+      return () => clearTimeout(t);
+    }
+  }, [abierto]);
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return productos;
-    return productos.filter((p) =>
+    if (!q) return productosLocales;
+    return productosLocales.filter((p) =>
       p.nombre.toLowerCase().includes(q) ||
       String(p.precio_venta).includes(q)
     );
-  }, [query, productos]);
+  }, [query, productosLocales]);
 
   const handleSeleccionar = (producto: Producto) => {
     onSeleccionar(producto);
@@ -59,7 +120,7 @@ export function SelectorProducto({
           { backgroundColor: C.bgInput, borderColor: C.border },
           abierto && { borderColor: C.accent, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
         ]}
-        onPress={() => setAbierto(!abierto)}
+        onPress={handleToggle}
         activeOpacity={0.8}
       >
         <MaterialCommunityIcons
@@ -119,12 +180,12 @@ export function SelectorProducto({
               style={styles.buscadorIcono}
             />
             <TextInput
+              ref={inputRef}
               style={[styles.buscadorInput, { color: C.textPrimary }]}
               value={query}
               onChangeText={setQuery}
               placeholder="Buscar producto..."
               placeholderTextColor={C.textDisabled}
-              autoFocus
               autoCorrect={false}
               autoCapitalize="none"
             />
@@ -136,60 +197,66 @@ export function SelectorProducto({
           </View>
 
           {/* Lista filtrada */}
-          <ScrollView style={styles.lista} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-            {filtrados.length === 0 ? (
-              <View style={styles.sinResultados}>
-                <Text style={[styles.sinResultadosTexto, { color: C.textDisabled }]}>
-                  Sin resultados para "{query}"
-                </Text>
-              </View>
-            ) : (
-              filtrados.map((p) => {
-                const esSeleccionado = seleccionado?.id === p.id;
-                return (
-                  <TouchableOpacity
-                    key={p.id}
-                    style={[
-                      styles.item,
-                      { borderBottomColor: C.divider },
-                      esSeleccionado && { backgroundColor: `${C.accent}14` },
-                    ]}
-                    onPress={() => handleSeleccionar(p)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.itemInfo}>
-                      <Text style={[
-                        styles.itemNombre,
-                        { color: C.textPrimary },
-                        esSeleccionado && { color: C.accent },
-                      ]}>
-                        {p.nombre}
-                      </Text>
-                      <View style={styles.itemPrecios}>
-                        {mostrarPrecio !== 'venta' && (
-                          <Text style={[styles.itemPrecio, { color: C.textSecondary }]}>
-                            C: {formatMoneda(p.precio_costo)}
-                          </Text>
-                        )}
-                        {mostrarPrecio !== 'costo' && (
-                          <Text style={[styles.itemPrecio, { color: C.textSecondary }]}>
-                            V: {formatMoneda(p.precio_venta)}
-                          </Text>
-                        )}
+          {cargandoLocal ? (
+            <View style={styles.cargando}>
+              <ActivityIndicator size="small" color={C.accent} />
+            </View>
+          ) : (
+            <ScrollView style={styles.lista} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              {filtrados.length === 0 ? (
+                <View style={styles.sinResultados}>
+                  <Text style={[styles.sinResultadosTexto, { color: C.textDisabled }]}>
+                    {query ? `Sin resultados para "${query}"` : 'No hay productos registrados'}
+                  </Text>
+                </View>
+              ) : (
+                filtrados.map((p) => {
+                  const esSeleccionado = seleccionado?.id === p.id;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[
+                        styles.item,
+                        { borderBottomColor: C.divider },
+                        esSeleccionado && { backgroundColor: `${C.accent}14` },
+                      ]}
+                      onPress={() => handleSeleccionar(p)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.itemInfo}>
+                        <Text style={[
+                          styles.itemNombre,
+                          { color: C.textPrimary },
+                          esSeleccionado && { color: C.accent },
+                        ]}>
+                          {p.nombre}
+                        </Text>
+                        <View style={styles.itemPrecios}>
+                          {mostrarPrecio !== 'venta' && (
+                            <Text style={[styles.itemPrecio, { color: C.textSecondary }]}>
+                              C: {formatMoneda(p.precio_costo)}
+                            </Text>
+                          )}
+                          {mostrarPrecio !== 'costo' && (
+                            <Text style={[styles.itemPrecio, { color: C.textSecondary }]}>
+                              V: {formatMoneda(p.precio_venta)}
+                            </Text>
+                          )}
+                        </View>
                       </View>
-                    </View>
-                    {esSeleccionado && (
-                      <MaterialCommunityIcons
-                        name="check-circle"
-                        size={18}
-                        color={C.accent}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </ScrollView>
+                      {esSeleccionado && (
+                        <MaterialCommunityIcons
+                          name="check-circle"
+                          size={18}
+                          color={C.accent}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+          )}
         </View>
       )}
     </View>
@@ -268,6 +335,11 @@ const styles = StyleSheet.create({
   },
   lista: {
     maxHeight: 200,
+  },
+  cargando: {
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   item: {
     flexDirection: 'row',

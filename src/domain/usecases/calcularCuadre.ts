@@ -216,7 +216,7 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
   );
 
   const total_gastos = redondear(
-    gastos.reduce((acc, g) => acc + g.diferencia, 0)
+    gastos.reduce((acc, g) => acc + g.monto, 0)
   );
 
   const total_esperado = redondear(total_ventas_esperado - total_gastos);

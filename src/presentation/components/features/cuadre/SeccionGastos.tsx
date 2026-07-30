@@ -24,43 +24,33 @@ interface SeccionGastosProps {
 export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionGastosProps) {
   const [mostrarForm, setMostrarForm] = useState(false);
 
-  const { control, handleSubmit, reset, watch, formState: { errors, isSubmitting } } =
+  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(gastoSchema),
       defaultValues: {
-        producto_nombre: '',
-        precio_venta: 0,
-        precio_cobrado: 0,
-        cantidad: 1,
+        concepto: '',
+        monto: 0,
         notas: '',
       },
     });
 
-  const precioVenta = watch('precio_venta') || 0;
-  const precioCobrado = watch('precio_cobrado') || 0;
-  const cantidad = watch('cantidad') || 1;
-  const diferencia = (precioVenta - precioCobrado) * cantidad;
-
   const onSubmit = async (data: FormData) => {
     await onCrear({
       turno_id: turnoId,
-      producto_id: null,
-      producto_nombre: data.producto_nombre,
-      precio_venta: data.precio_venta,
-      precio_cobrado: data.precio_cobrado,
-      cantidad: data.cantidad,
+      concepto: data.concepto?.trim() || null,
+      monto: data.monto,
       notas: data.notas || null,
     });
     reset();
     setMostrarForm(false);
   };
 
-  const totalGastos = gastos.reduce((acc, g) => acc + g.diferencia, 0);
+  const totalGastos = gastos.reduce((acc, g) => acc + g.monto, 0);
 
   return (
     <View style={styles.container}>
       <Text style={styles.descripcion}>
-        Registra productos que compró algún trabajador a precio reducido. La diferencia entre el precio real y lo cobrado se descuenta de la caja.
+        Registra cualquier gasto que deba descontarse de la caja. Ingresa el monto exacto a descontar.
       </Text>
 
       {gastos.length > 0 && (
@@ -72,56 +62,59 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
 
       {mostrarForm && (
         <View style={styles.form}>
-          <Controller control={control} name="producto_nombre"
+          <Controller control={control} name="concepto"
             render={({ field: { onChange, value } }) => (
-              <Input label="Producto" placeholder="Nombre del producto..."
-                value={value} onChangeText={onChange}
-                error={errors.producto_nombre?.message} icon="package-variant-closed" />
-            )} />
-          <Controller control={control} name="cantidad"
-            render={({ field: { onChange, value } }) => (
-              <Input label="Cantidad" placeholder="1"
-                value={value === 1 ? '' : String(value)}
-                onChangeText={(t) => onChange(parseFloat(t) || 1)}
-                error={errors.cantidad?.message}
-                keyboardType="decimal-pad" icon="counter" />
-            )} />
-          <Controller control={control} name="precio_venta"
-            render={({ field: { onChange, value } }) => (
-              <Input label="Precio de venta real (CUP)" placeholder="0.00"
-                value={value === 0 ? '' : String(value)}
-                onChangeText={(t) => onChange(parseFloat(t) || 0)}
-                error={errors.precio_venta?.message}
-                keyboardType="decimal-pad" icon="tag-outline" />
-            )} />
-          <Controller control={control} name="precio_cobrado"
-            render={({ field: { onChange, value } }) => (
-              <Input label="Precio cobrado al trabajador (CUP)" placeholder="0.00"
-                value={value === 0 ? '' : String(value)}
-                onChangeText={(t) => onChange(parseFloat(t) || 0)}
-                error={errors.precio_cobrado?.message}
-                keyboardType="decimal-pad" icon="tag-minus-outline" />
-            )} />
+              <Input
+                label="Concepto (opcional)"
+                placeholder="Ej: Jabón cocina, pago de servicio..."
+                value={value ?? ''}
+                onChangeText={onChange}
+                icon="text-short"
+              />
+            )}
+          />
 
-          {/* Diferencia calculada */}
-          {diferencia > 0 && (
-            <View style={styles.diferenciaPreview}>
-              <Text style={styles.diferenciaLabel}>Diferencia a descontar</Text>
-              <Text style={styles.diferenciaValor}>- {formatMoneda(diferencia)}</Text>
-            </View>
-          )}
+          <Controller control={control} name="monto"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="Monto a descontar (CUP)"
+                placeholder="0.00"
+                value={value === 0 ? '' : String(value)}
+                onChangeText={(t) => onChange(parseFloat(t) || 0)}
+                error={errors.monto?.message}
+                keyboardType="decimal-pad"
+                icon="cash-minus"
+              />
+            )}
+          />
 
           <Controller control={control} name="notas"
             render={({ field: { onChange, value } }) => (
-              <Input label="Notas (opcional)" placeholder="Observaciones..."
-                value={value ?? ''} onChangeText={onChange} icon="note-outline" />
-            )} />
+              <Input
+                label="Notas (opcional)"
+                placeholder="Observaciones..."
+                value={value ?? ''}
+                onChangeText={onChange}
+                icon="note-outline"
+              />
+            )}
+          />
 
           <View style={styles.botones}>
-            <Button label="Cancelar" variant="ghost"
-              onPress={() => { setMostrarForm(false); reset(); }} style={{ flex: 1 }} />
-            <Button label="Agregar" variant="primary" icon="check"
-              onPress={handleSubmit(onSubmit)} loading={isSubmitting} style={{ flex: 2 }} />
+            <Button
+              label="Cancelar"
+              variant="ghost"
+              onPress={() => { setMostrarForm(false); reset(); }}
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Agregar"
+              variant="primary"
+              icon="check"
+              onPress={handleSubmit(onSubmit)}
+              loading={isSubmitting}
+              style={{ flex: 2 }}
+            />
           </View>
         </View>
       )}
@@ -130,22 +123,23 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
         <View key={g.id} style={styles.item}>
           <View style={styles.itemLeft}>
             <Text style={styles.itemNumero}>#{i + 1}</Text>
-            <View>
-              <Text style={styles.itemNombre}>{g.producto_nombre}</Text>
-              <Text style={styles.itemDetalle}>
-                {g.cantidad} × {formatMoneda(g.precio_venta)} → {formatMoneda(g.precio_cobrado)}
-              </Text>
-              <Text style={styles.itemDiferencia}>
-                Descuento: - {formatMoneda(g.diferencia)}
-              </Text>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemConcepto}>{g.concepto ?? 'Gasto'}</Text>
+              {g.notas ? (
+                <Text style={styles.itemNotas} numberOfLines={1}>{g.notas}</Text>
+              ) : null}
+              <Text style={styles.itemMonto}>- {formatMoneda(g.monto)}</Text>
             </View>
           </View>
           <TouchableOpacity
-            onPress={() => Alert.alert('Eliminar', '¿Eliminar este gasto?', [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(g.id) },
-            ])}
-            style={styles.botonEliminar}>
+            onPress={() =>
+              Alert.alert('Eliminar', '¿Eliminar este gasto?', [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(g.id) },
+              ])
+            }
+            style={styles.botonEliminar}
+          >
             <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
           </TouchableOpacity>
         </View>
@@ -194,27 +188,6 @@ const styles = StyleSheet.create({
     color: Colors.accentDanger,
   },
   form: { marginBottom: Spacing.md },
-  diferenciaPreview: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(232,84,84,0.08)',
-    borderRadius: Radius.sm,
-    padding: Spacing.sm,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(232,84,84,0.2)',
-  },
-  diferenciaLabel: {
-    fontFamily: Typography.fontFamily,
-    fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
-  },
-  diferenciaValor: {
-    fontFamily: Typography.fontFamilyBold,
-    fontSize: Typography.size.md,
-    color: Colors.accentDanger,
-  },
   botones: { flexDirection: 'row', gap: Spacing.sm },
   item: {
     flexDirection: 'row',
@@ -227,7 +200,12 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
   },
-  itemLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, flex: 1 },
+  itemLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    flex: 1,
+  },
   itemNumero: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
@@ -235,22 +213,23 @@ const styles = StyleSheet.create({
     width: 24,
     marginTop: 2,
   },
-  itemNombre: {
+  itemInfo: { flex: 1 },
+  itemConcepto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.sm,
     color: Colors.textPrimary,
   },
-  itemDetalle: {
+  itemNotas: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  itemDiferencia: {
+  itemMonto: {
     fontFamily: Typography.fontFamilySemiBold,
-    fontSize: Typography.size.xs,
+    fontSize: Typography.size.sm,
     color: Colors.accentDanger,
-    marginTop: 2,
+    marginTop: 4,
   },
   botonEliminar: { padding: Spacing.xs },
   botonAgregar: {

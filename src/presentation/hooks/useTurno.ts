@@ -7,6 +7,7 @@ import { ProductoRepository } from '../../data/repositories/ProductoRepository';
 import { MovimientoRepository } from '../../data/repositories/MovimientoRepository';
 import { HistorialRepository } from '../../data/repositories/HistorialRepository';
 import { calcularCuadre, DatosCuadre } from '../../domain/usecases/calcularCuadre';
+import { useProductosStore } from '../stores/productosStore';
 
 interface UseTurnoReturn {
   turno: Turno | null;
@@ -22,6 +23,7 @@ export function useTurno(): UseTurnoReturn {
   const [turno, setTurno] = useState<Turno | null>(null);
   const [cargando, setCargando] = useState(true);
   const [cerrando, setCerrando] = useState(false);
+  const marcarProductosActualizados = useProductosStore((s) => s.marcarActualizado);
 
   const recargar = useCallback(async () => {
     try {
@@ -163,6 +165,8 @@ export function useTurno(): UseTurnoReturn {
           });
         }
         inventarioActualizado = true;
+        // Notificar a useProductos (tab Inventario) que hay nuevas cantidades en SQLite
+        marcarProductosActualizados();
         console.log(
           '[useTurno] Paso 4/5 completado: Inventario actualizado con cantidades finales'
         );

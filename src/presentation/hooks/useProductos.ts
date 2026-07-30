@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Producto, ProductoInput } from '../../domain/entities/Producto';
 import { ProductoRepository } from '../../data/repositories/ProductoRepository';
+import { useProductosStore } from '../stores/productosStore';
 
 interface UseProductosReturn {
   productos: Producto[];
@@ -19,6 +20,10 @@ export function useProductos(): UseProductosReturn {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Cuando productosStore.version cambia significa que algún proceso externo
+  // (ej: cerrar turno) actualizó cantidades en SQLite — hay que releer.
+  const version = useProductosStore((s) => s.version);
+
   const recargar = useCallback(async () => {
     try {
       setCargando(true);
@@ -33,7 +38,9 @@ export function useProductos(): UseProductosReturn {
     }
   }, []);
 
-  useEffect(() => { recargar(); }, [recargar]);
+  // Se ejecuta en el mount inicial y también cada vez que version cambia
+  // (señal de que el inventario fue modificado externamente).
+  useEffect(() => { recargar(); }, [recargar, version]);
 
   const crearProducto = useCallback(
     async (input: Omit<ProductoInput, 'orden'>) => {

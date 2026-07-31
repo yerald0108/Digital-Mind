@@ -1,6 +1,6 @@
 // src/presentation/components/features/historial/ModalDetalleHistorial.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Modal } from '../../ui/Modal';
 import { HistorialTurno } from '../../../../domain/entities/HistorialTurno';
@@ -38,100 +38,6 @@ export function ModalDetalleHistorial({
   const toggleSeccion = (key: string) =>
     setSeccionAbierta((prev) => (prev === key ? null : key));
 
-  // ── Compartir por WhatsApp ─────────────────────────────────
-  const handleCompartir = async () => {
-    const linea = (label: string, valor: string) => `• ${label}: ${valor}`;
-    const sep = '─────────────────────';
-
-    const estadoTexto =
-      registro.estado_cuadre === 'sobrante'
-        ? `Sobrante de ${formatMoneda(registro.diferencia)}`
-        : registro.estado_cuadre === 'faltante'
-        ? `Faltante de ${formatMoneda(Math.abs(registro.diferencia))}`
-        : registro.estado_cuadre === 'exacto'
-        ? 'Cuadre exacto ✓'
-        : 'Sin cuadre';
-
-    let texto = `📊 *RESUMEN DE TURNO — Digital/Mind*\n${sep}\n`;
-    texto += `📅 Apertura: ${formatFechaHora(registro.fecha_apertura)}\n`;
-    texto += `📅 Cierre:   ${formatFechaHora(registro.fecha_cierre)}\n`;
-    texto += `⏱ Duración: ${formatDias(registro.dias_duracion)}\n\n`;
-
-    texto += `💰 *CUADRE DE CAJA*\n${sep}\n`;
-    texto += `${linea('Total ventas', formatMoneda(registro.total_ventas))}\n`;
-    if (registro.total_transferencias > 0)
-      texto += `${linea('Transferencias', formatMoneda(registro.total_transferencias))}\n`;
-    if (registro.total_usd_cup > 0)
-      texto += `${linea('USD (CUP)', formatMoneda(registro.total_usd_cup))}\n`;
-    if (registro.total_gastos > 0)
-      texto += `${linea('Gastos', `- ${formatMoneda(registro.total_gastos)}`)}\n`;
-    texto += `${linea('Total esperado', formatMoneda(registro.total_esperado))}\n`;
-    texto += `${linea('Efectivo real', formatMoneda(registro.total_efectivo_real))}\n`;
-    texto += `➡ Estado: ${estadoTexto}\n\n`;
-
-    texto += `👷 *SALARIOS Y GANANCIAS*\n${sep}\n`;
-    texto += `${linea('Salario mostrador (1%)', formatMoneda(registro.salario_mostrador))}\n`;
-    texto += `${linea('Salario salón (0.5%)', formatMoneda(registro.salario_salon))}\n`;
-    texto += `${linea('Ganancia neta', formatMoneda(registro.ganancia_neta))}\n`;
-
-    if (resultados.length > 0) {
-      texto += `\n📦 *APORTE POR PRODUCTO*\n${sep}\n`;
-      for (const r of resultados) {
-        texto += `${linea(r.producto_nombre, `${r.cantidad_vendida} uds → ${formatMoneda(r.dinero_aportado)}`)}\n`;
-      }
-    }
-
-    if (movs) {
-      texto += `\n🔄 *MOVIMIENTOS*\n${sep}\n`;
-      if (movs.entradas?.length > 0) {
-        texto += `📥 Entradas (${movs.entradas.length}):\n`;
-        for (const e of movs.entradas) {
-          texto += `  - ${e.producto_nombre}: ${e.cantidad} uds\n`;
-        }
-      }
-      if (movs.salidasFamiliares?.length > 0) {
-        texto += `👪 Salidas familiares (${movs.salidasFamiliares.length}):\n`;
-        for (const s of movs.salidasFamiliares) {
-          texto += `  - ${s.producto_nombre}: ${s.cantidad} uds (${s.quien_sustrajo})\n`;
-        }
-      }
-      if (movs.cambiosPrecio?.length > 0) {
-        texto += `🏷 Cambios de precio (${movs.cambiosPrecio.length}):\n`;
-        for (const c of movs.cambiosPrecio) {
-          texto += `  - ${c.producto_nombre}: ${formatMoneda(c.precio_anterior)} → ${formatMoneda(c.precio_nuevo)}\n`;
-        }
-      }
-      if (movs.mermas?.length > 0) {
-        texto += `⚠ Mermas (${movs.mermas.length}):\n`;
-        for (const m of movs.mermas) {
-          texto += `  - ${m.producto_nombre}: ${m.cantidad} uds (${m.tipo})\n`;
-        }
-      }
-      if (movs.transferencias?.length > 0) {
-        texto += `💳 Transferencias (${movs.transferencias.length}):\n`;
-        for (const t of movs.transferencias) {
-          texto += `  - ${formatMoneda(t.monto)}${t.concepto ? ` (${t.concepto})` : ''}\n`;
-        }
-      }
-      if (movs.gastos?.length > 0) {
-        texto += `🧾 Gastos (${movs.gastos.length}):\n`;
-        for (const g of movs.gastos) {
-          const etiqueta = g.concepto || g.producto_nombre || 'Gasto';
-          const monto = g.monto || g.diferencia || 0;
-          texto += `  - ${etiqueta}: - ${formatMoneda(monto)}\n`;
-        }
-      }
-    }
-
-    texto += `\n_Generado por Digital/Mind_`;
-
-    try {
-      await Share.share({ message: texto });
-    } catch {
-      Alert.alert('Error', 'No se pudo compartir el resumen');
-    }
-  };
-
   return (
     <Modal
       visible={visible}
@@ -139,12 +45,6 @@ export function ModalDetalleHistorial({
       onClose={onClose}
       scrollable
     >
-      {/* ── Botón compartir WhatsApp ── */}
-      <TouchableOpacity style={styles.botonCompartir} onPress={handleCompartir} activeOpacity={0.8}>
-        <MaterialCommunityIcons name="whatsapp" size={18} color="#25D366" />
-        <Text style={styles.botonCompartirTexto}>Compartir resumen</Text>
-      </TouchableOpacity>
-
       {/* ── Info general ── */}
       <View style={styles.infoGeneral}>
         <View style={styles.infoFila}>
@@ -468,23 +368,6 @@ const estilosHelper = StyleSheet.create({
 
 // ── Estilos principales ───────────────────────────────────────
 const styles = StyleSheet.create({
-  botonCompartir: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: 'rgba(37,211,102,0.1)',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(37,211,102,0.3)',
-    paddingVertical: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  botonCompartirTexto: {
-    fontFamily: Typography.fontFamilySemiBold,
-    fontSize: Typography.size.sm,
-    color: '#25D366',
-  },
   infoGeneral: {
     backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,

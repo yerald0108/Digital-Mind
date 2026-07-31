@@ -1,5 +1,5 @@
 // src/presentation/components/features/historial/CardHistorial.tsx
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HistorialTurno } from '../../../../domain/entities/HistorialTurno';
 import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -36,61 +36,120 @@ export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProp
       '¿Seguro que deseas eliminar este registro del historial? Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => onEliminar(registro.id),
-        },
+        { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(registro.id) },
       ]
     );
   };
 
+  const handleCompartir = async () => {
+    const sep = '─────────────────────';
+    const linea = (label: string, valor: string) => `• ${label}: ${valor}`;
+
+    const estadoTexto =
+      registro.estado_cuadre === 'sobrante'
+        ? `Sobrante de ${formatMoneda(registro.diferencia)}`
+        : registro.estado_cuadre === 'faltante'
+        ? `Faltante de ${formatMoneda(Math.abs(registro.diferencia))}`
+        : registro.estado_cuadre === 'exacto'
+        ? 'Cuadre exacto ✓'
+        : 'Sin cuadre';
+
+    // Parsear movimientos del detalle_json
+    let movs: any = null;
+    try {
+      if (registro.detalle_json) movs = JSON.parse(registro.detalle_json)?.datos;
+    } catch { /* sin detalle */ }
+
+    let texto = `📊 *RESUMEN DE TURNO — Digital/Mind*\n${sep}\n`;
+    texto += `📅 Apertura: ${formatFechaHora(registro.fecha_apertura)}\n`;
+    texto += `📅 Cierre:   ${formatFechaHora(registro.fecha_cierre)}\n`;
+    texto += `⏱ Duración: ${formatDias(registro.dias_duracion)}\n\n`;
+
+    texto += `💰 *CUADRE DE CAJA*\n${sep}\n`;
+    texto += `${linea('Total ventas', formatMoneda(registro.total_ventas))}\n`;
+    if (registro.total_transferencias > 0)
+      texto += `${linea('Transferencias', formatMoneda(registro.total_transferencias))}\n`;
+    if (registro.total_usd_cup > 0)
+      texto += `${linea('USD (CUP)', formatMoneda(registro.total_usd_cup))}\n`;
+    if (registro.total_gastos > 0)
+      texto += `${linea('Gastos', `- ${formatMoneda(registro.total_gastos)}`)}\n`;
+    texto += `${linea('Total esperado', formatMoneda(registro.total_esperado))}\n`;
+    texto += `${linea('Efectivo real', formatMoneda(registro.total_efectivo_real))}\n`;
+    texto += `➡ Estado: ${estadoTexto}\n\n`;
+
+    texto += `👷 *SALARIOS Y GANANCIAS*\n${sep}\n`;
+    texto += `${linea('Salario mostrador (1%)', formatMoneda(registro.salario_mostrador))}\n`;
+    texto += `${linea('Salario salón (0.5%)', formatMoneda(registro.salario_salon))}\n`;
+    texto += `${linea('Ganancia neta', formatMoneda(registro.ganancia_neta))}\n`;
+
+    if (movs) {
+      texto += `\n🔄 *MOVIMIENTOS*\n${sep}\n`;
+
+      if (movs.entradas?.length > 0) {
+        texto += `📥 Entradas (${movs.entradas.length}):\n`;
+        for (const e of movs.entradas)
+          texto += `  - ${e.producto_nombre}: ${e.cantidad} uds\n`;
+      }
+      if (movs.salidasFamiliares?.length > 0) {
+        texto += `👪 Salidas familiares (${movs.salidasFamiliares.length}):\n`;
+        for (const s of movs.salidasFamiliares)
+          texto += `  - ${s.producto_nombre}: ${s.cantidad} uds (${s.quien_sustrajo})\n`;
+      }
+      if (movs.cambiosPrecio?.length > 0) {
+        texto += `🏷 Cambios de precio (${movs.cambiosPrecio.length}):\n`;
+        for (const c of movs.cambiosPrecio)
+          texto += `  - ${c.producto_nombre}: ${formatMoneda(c.precio_anterior)} → ${formatMoneda(c.precio_nuevo)}\n`;
+      }
+      if (movs.mermas?.length > 0) {
+        texto += `⚠ Mermas (${movs.mermas.length}):\n`;
+        for (const m of movs.mermas)
+          texto += `  - ${m.producto_nombre}: ${m.cantidad} uds (${m.tipo})\n`;
+      }
+      if (movs.transferencias?.length > 0) {
+        texto += `💳 Transferencias (${movs.transferencias.length}):\n`;
+        for (const t of movs.transferencias)
+          texto += `  - ${formatMoneda(t.monto)}${t.concepto ? ` (${t.concepto})` : ''}\n`;
+      }
+      if (movs.gastos?.length > 0) {
+        texto += `🧾 Gastos (${movs.gastos.length}):\n`;
+        for (const g of movs.gastos) {
+          const etiqueta = g.concepto || g.producto_nombre || 'Gasto';
+          const monto = g.monto || g.diferencia || 0;
+          texto += `  - ${etiqueta}: - ${formatMoneda(monto)}\n`;
+        }
+      }
+    }
+
+    texto += `\n_Generado por Digital/Mind_`;
+
+    try {
+      await Share.share({ message: texto });
+    } catch {
+      Alert.alert('Error', 'No se pudo compartir el resumen');
+    }
+  };
+
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => onVer(registro)}
-      activeOpacity={0.8}
-    >
+    <TouchableOpacity style={styles.card} onPress={() => onVer(registro)} activeOpacity={0.8}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Fecha y duración */}
         <View style={styles.headerLeft}>
           <Text style={styles.fecha}>{formatFecha(registro.fecha_apertura)}</Text>
           <View style={styles.duracionBadge}>
-            <MaterialCommunityIcons
-              name="calendar-range"
-              size={12}
-              color={Colors.textSecondary}
-            />
-            <Text style={styles.duracionTexto}>
-              {formatDias(registro.dias_duracion)}
-            </Text>
+            <MaterialCommunityIcons name="calendar-range" size={12} color={Colors.textSecondary} />
+            <Text style={styles.duracionTexto}>{formatDias(registro.dias_duracion)}</Text>
           </View>
         </View>
-
-        {/* Estado del cuadre */}
         <View style={[styles.estadoBadge, { borderColor: colorEstado }]}>
           <MaterialCommunityIcons name={iconoEstado} size={14} color={colorEstado} />
-          <Text style={[styles.estadoTexto, { color: colorEstado }]}>
-            {labelEstado}
-          </Text>
+          <Text style={[styles.estadoTexto, { color: colorEstado }]}>{labelEstado}</Text>
         </View>
       </View>
 
       {/* Datos principales */}
       <View style={styles.datos}>
-        <DatoItem
-          label="Ventas"
-          valor={formatMoneda(registro.total_ventas)}
-          icono="cash-register"
-          color={Colors.accent}
-        />
-        <DatoItem
-          label="Real en caja"
-          valor={formatMoneda(registro.total_efectivo_real)}
-          icono="cash"
-          color={Colors.accentSuccess}
-        />
+        <DatoItem label="Ventas" valor={formatMoneda(registro.total_ventas)} icono="cash-register" color={Colors.accent} />
+        <DatoItem label="Real en caja" valor={formatMoneda(registro.total_efectivo_real)} icono="cash" color={Colors.accentSuccess} />
         <DatoItem
           label="Ganancia neta"
           valor={formatMoneda(registro.ganancia_neta)}
@@ -111,26 +170,17 @@ export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProp
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Text style={styles.footerFecha}>
-          Cerrado: {formatFechaHora(registro.fecha_cierre)}
-        </Text>
+        <Text style={styles.footerFecha}>Cerrado: {formatFechaHora(registro.fecha_cierre)}</Text>
         <View style={styles.footerAcciones}>
-          <TouchableOpacity
-            onPress={() => onVer(registro)}
-            style={styles.botonVer}
-          >
+          <TouchableOpacity onPress={handleCompartir} style={styles.botonCompartir}>
+            <MaterialCommunityIcons name="whatsapp" size={15} color="#25D366" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onVer(registro)} style={styles.botonVer}>
             <MaterialCommunityIcons name="eye-outline" size={16} color={Colors.accent} />
             <Text style={styles.botonVerTexto}>Ver detalle</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={confirmarEliminar}
-            style={styles.botonEliminar}
-          >
-            <MaterialCommunityIcons
-              name="trash-can-outline"
-              size={16}
-              color={Colors.accentDanger}
-            />
+          <TouchableOpacity onPress={confirmarEliminar} style={styles.botonEliminar}>
+            <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
           </TouchableOpacity>
         </View>
       </View>
@@ -138,14 +188,9 @@ export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProp
   );
 }
 
-// ── Dato individual ───────────────────────────────────────────
-function DatoItem({
-  label, valor, icono, color,
-}: {
-  label: string;
-  valor: string;
-  icono: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  color: string;
+function DatoItem({ label, valor, icono, color }: {
+  label: string; valor: string;
+  icono: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string;
 }) {
   return (
     <View style={styles.datoItem}>
@@ -177,11 +222,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.lg,
     color: Colors.textPrimary,
   },
-  duracionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
+  duracionBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   duracionTexto: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
@@ -200,15 +241,8 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.xs,
   },
-  datos: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  datoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
+  datos: { gap: Spacing.sm, marginBottom: Spacing.md },
+  datoItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   datoLabel: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
@@ -243,10 +277,16 @@ const styles = StyleSheet.create({
     color: Colors.textDisabled,
     flex: 1,
   },
-  footerAcciones: {
-    flexDirection: 'row',
+  footerAcciones: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  botonCompartir: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(37,211,102,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(37,211,102,0.3)',
     alignItems: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'center',
   },
   botonVer: {
     flexDirection: 'row',
@@ -264,7 +304,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs,
     color: Colors.accent,
   },
-  botonEliminar: {
-    padding: Spacing.xs,
-  },
+  botonEliminar: { padding: Spacing.xs },
 });

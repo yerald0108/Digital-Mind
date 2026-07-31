@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ToastConfig, ToastVariant } from './types';
-import { Colors, Typography, Spacing, Radius } from 'src/constants/theme';
+import { Typography, Spacing, Radius } from 'src/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TOAST_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
@@ -22,6 +22,7 @@ interface VarianteVisual {
   bgColor: string;
   barColor: string;
   borderColor: string;
+  textColor: string;
 }
 
 // Colores sólidos — visibles sobre cualquier fondo
@@ -31,6 +32,7 @@ const success: VarianteVisual = {
   bgColor: '#1A2E23',
   barColor: '#34C77B',
   borderColor: '#2A4A35',
+  textColor: '#D9F5E4',
 };
 
 const errorV: VarianteVisual = {
@@ -39,6 +41,7 @@ const errorV: VarianteVisual = {
   bgColor: '#2E1A1A',
   barColor: '#E85454',
   borderColor: '#4A2A2A',
+  textColor: '#F8DDDD',
 };
 
 const warning: VarianteVisual = {
@@ -47,6 +50,7 @@ const warning: VarianteVisual = {
   bgColor: '#2E2714',
   barColor: '#F0B429',
   borderColor: '#4A3E1E',
+  textColor: '#FFF1C7',
 };
 
 const infoV: VarianteVisual = {
@@ -55,6 +59,7 @@ const infoV: VarianteVisual = {
   bgColor: '#1A2240',
   barColor: '#4F8EF7',
   borderColor: '#243060',
+  textColor: '#DCE7FF',
 };
 
 const VARIANTE_CONFIG: Record<ToastVariant, VarianteVisual> = {
@@ -149,7 +154,7 @@ export function ToastItem({ toast, onDismiss }: ToastItemProps) {
           {toast.titulo}
         </Text>
         {toast.mensaje ? (
-          <Text style={styles.mensaje} numberOfLines={2}>
+          <Text style={[styles.mensaje, { color: config.textColor }]} numberOfLines={2}>
             {toast.mensaje}
           </Text>
         ) : null}
@@ -157,7 +162,7 @@ export function ToastItem({ toast, onDismiss }: ToastItemProps) {
 
       {/* Cerrar */}
       <TouchableOpacity onPress={salir} style={styles.botonCerrar} activeOpacity={0.7}>
-        <MaterialCommunityIcons name="close" size={16} color={Colors.textSecondary} />
+        <MaterialCommunityIcons name="close" size={16} color={config.textColor} />
       </TouchableOpacity>
 
       {/* Barra progreso inferior */}
@@ -212,7 +217,6 @@ const styles = StyleSheet.create({
   mensaje: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textSecondary,
     marginTop: 3,
     lineHeight: 16,
   },

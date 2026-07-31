@@ -4,8 +4,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Modal } from '../../ui/Modal';
 import { HistorialTurno } from '../../../../domain/entities/HistorialTurno';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda, formatFechaHora, formatDias } from '../../../../utils/formatters';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
 
 interface ModalDetalleHistorialProps {
   visible: boolean;
@@ -16,6 +17,8 @@ interface ModalDetalleHistorialProps {
 export function ModalDetalleHistorial({
   visible, onClose, registro,
 }: ModalDetalleHistorialProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
 
   if (!registro) return null;
@@ -254,6 +257,8 @@ function MovimientoDropdown({
   onToggle: () => void;
   children: React.ReactNode;
 }) {
+  const { C: Colors } = useTheme();
+  const estilosHelper = crearEstilosHelper(Colors);
   const tieneItems = count > 0;
   return (
     <View style={estilosHelper.dropdownWrapper}>
@@ -292,6 +297,8 @@ function FilaDetalle({
 }: {
   label: string; valor: number; color: string; negativo?: boolean; destacado?: boolean;
 }) {
+  const { C: Colors } = useTheme();
+  const estilosHelper = crearEstilosHelper(Colors);
   return (
     <View style={[estilosHelper.fila, destacado && estilosHelper.filaDestacada]}>
       <Text style={[estilosHelper.label, destacado && estilosHelper.labelDestacado]}>{label}</Text>
@@ -303,7 +310,8 @@ function FilaDetalle({
 }
 
 // ── Estilos helpers ───────────────────────────────────────────
-const estilosHelper = StyleSheet.create({
+function crearEstilosHelper(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   fila: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -364,10 +372,12 @@ const estilosHelper = StyleSheet.create({
     borderLeftWidth: 2,
     gap: 2,
   },
-});
+  });
+}
 
 // ── Estilos principales ───────────────────────────────────────
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   infoGeneral: {
     backgroundColor: Colors.bgElevated,
     borderRadius: Radius.md,
@@ -468,4 +478,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     color: Colors.accent,
   },
-});
+  });
+}

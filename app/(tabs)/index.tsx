@@ -300,7 +300,7 @@ export default function InicioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingBottom: Spacing.xxxl },
+  scroll: { paddingBottom: 120 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

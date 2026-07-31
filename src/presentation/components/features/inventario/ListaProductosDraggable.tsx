@@ -253,7 +253,7 @@ export function ListaProductosDraggable({
 const styles = StyleSheet.create({
   lista: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
+    paddingBottom: 120,
   },
   card: {
     flexDirection: 'row',

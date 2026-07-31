@@ -72,22 +72,27 @@ export const TurnoRepository = {
 
   async guardarInventario(items: ItemInventarioTurnoInput[]): Promise<void> {
     const db = getDatabase();
-    for (const item of items) {
-      await db.runAsync(
-        `INSERT INTO inventario_turno
-         (turno_id, producto_id, producto_nombre, precio_costo, precio_venta, cantidad, tipo)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          item.turno_id,
-          item.producto_id,
-          item.producto_nombre,
-          item.precio_costo,
-          item.precio_venta,
-          item.cantidad,
-          item.tipo,
-        ]
-      );
-    }
+    // Todos los INSERTs en una sola transacción atómica.
+    // Si falla cualquier ítem, SQLite revierte todo el lote.
+    // También es significativamente más rápido que N transacciones individuales.
+    await db.withTransactionAsync(async () => {
+      for (const item of items) {
+        await db.runAsync(
+          `INSERT INTO inventario_turno
+           (turno_id, producto_id, producto_nombre, precio_costo, precio_venta, cantidad, tipo)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.turno_id,
+            item.producto_id,
+            item.producto_nombre,
+            item.precio_costo,
+            item.precio_venta,
+            item.cantidad,
+            item.tipo,
+          ]
+        );
+      }
+    });
   },
 
   async getInventario(

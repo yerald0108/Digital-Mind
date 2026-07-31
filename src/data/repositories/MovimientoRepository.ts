@@ -226,6 +226,38 @@ export const MovimientoRepository = {
     return result.lastInsertRowId;
   },
 
+  /**
+   * Guarda varios días de caja como una sola operación atómica.
+   * La pantalla de Cuadre lo usa para confirmar todos los cambios
+   * pendientes con un único toque.
+   */
+  async guardarCajaPorDia(inputs: CajaDiaInput[]): Promise<void> {
+    if (inputs.length === 0) return;
+
+    const db = getDatabase();
+    await db.withTransactionAsync(async () => {
+      for (const input of inputs) {
+        const existing = await db.getFirstAsync<CajaDia>(
+          'SELECT * FROM caja_por_dia WHERE turno_id = ? AND dia_numero = ?',
+          [input.turno_id, input.dia_numero]
+        );
+
+        if (existing) {
+          await db.runAsync(
+            'UPDATE caja_por_dia SET monto_efectivo = ? WHERE id = ?',
+            [input.monto_efectivo, existing.id]
+          );
+        } else {
+          await db.runAsync(
+            `INSERT INTO caja_por_dia (turno_id, dia_numero, monto_efectivo)
+             VALUES (?, ?, ?)`,
+            [input.turno_id, input.dia_numero, input.monto_efectivo]
+          );
+        }
+      }
+    });
+  },
+
   async getCajaPorDia(turnoId: number): Promise<CajaDia[]> {
     const db = getDatabase();
     return await db.getAllAsync<CajaDia>(

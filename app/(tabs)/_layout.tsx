@@ -1,68 +1,71 @@
 // app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Dimensions, Easing } from 'react-native';
+import { BarraNavegacionFlotante } from '../../src/presentation/components/navigation/BarraNavegacionFlotante';
 import { useTheme } from '../../src/presentation/hooks/useTheme';
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+const ANCHO_PANTALLA = Dimensions.get('window').width;
 
 export default function TabLayout() {
-  const { C, T, S } = useTheme();
+  const { C } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: C.bgSurface,
-          borderTopColor: C.border,
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: S.sm,
-          paddingTop: S.xs,
+        transitionSpec: {
+          animation: 'timing',
+          config: {
+            duration: 360,
+            easing: Easing.bezier(0.22, 0.78, 0.2, 1),
+          },
         },
-        tabBarActiveTintColor: C.accent,
-        tabBarInactiveTintColor: C.textSecondary,
-        tabBarLabelStyle: {
-          fontFamily: T.fontFamilyMedium,
-          fontSize: T.size.xs,
-          marginTop: 2,
+        sceneStyleInterpolator: ({ current }) => ({
+          sceneStyle: {
+            transform: [
+              {
+                translateX: current.progress.interpolate({
+                  inputRange: [-1, 0, 1],
+                  outputRange: [-ANCHO_PANTALLA, 0, ANCHO_PANTALLA],
+                }),
+              },
+            ],
+          },
+        }),
+        sceneStyle: {
+          backgroundColor: C.bgPrimary,
+        },
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
         },
       }}
+      tabBar={(props) => <BarraNavegacionFlotante {...props} />}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="view-dashboard-outline" color={color} size={size} />
-          ),
         }}
       />
       <Tabs.Screen
         name="inventario"
         options={{
           title: 'Inventario',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="package-variant-closed" color={color} size={size} />
-          ),
         }}
       />
       <Tabs.Screen
         name="cuadre"
         options={{
           title: 'Cuadre',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="calculator-variant-outline" color={color} size={size} />
-          ),
         }}
       />
       <Tabs.Screen
         name="historial"
         options={{
           title: 'Historial',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="history" color={color} size={size} />
-          ),
         }}
       />
     </Tabs>

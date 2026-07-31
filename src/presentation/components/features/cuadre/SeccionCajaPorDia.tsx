@@ -1,5 +1,4 @@
-// src/presentation/components/features/cuadre/SeccionCajaPorDia.tsx
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,14 +8,15 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CajaDia, CajaDiaInput } from '../../../../domain/entities/CajaDia';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
+import { useTheme } from '../../../hooks/useTheme';
 
 interface SeccionCajaPorDiaProps {
   turnoId: number;
   diasDuracion: number;
   cajaPorDia: CajaDia[];
-  onGuardar: (input: CajaDiaInput) => Promise<void>;
+  onGuardar: (inputs: CajaDiaInput[]) => Promise<void>;
 }
 
 export function SeccionCajaPorDia({
@@ -25,13 +25,14 @@ export function SeccionCajaPorDia({
   cajaPorDia,
   onGuardar,
 }: SeccionCajaPorDiaProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const dias = Array.from({ length: diasDuracion }, (_, i) => i + 1);
-
-  // Estado local para cada día — evita conflicto con el estado remoto
   const [valores, setValores] = useState<Record<number, string>>({});
-  const [guardando, setGuardando] = useState<Record<number, boolean>>({});
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
 
-  // Inicializar valores desde la DB cuando cajaPorDia cambia
+  // Cuando llega una confirmación desde SQLite, la interfaz refleja los datos persistidos.
   useEffect(() => {
     const inicial: Record<number, string> = {};
     dias.forEach((dia) => {
@@ -41,64 +42,82 @@ export function SeccionCajaPorDia({
         : '';
     });
     setValores(inicial);
-  }, [cajaPorDia.length, diasDuracion]);
+  }, [cajaPorDia, diasDuracion]);
 
   const handleChangeText = (dia: number, texto: string) => {
-    // Solo permitir números y punto decimal
     const limpio = texto.replace(/[^0-9.]/g, '');
-    // Evitar múltiples puntos
     const partes = limpio.split('.');
     const valido = partes.length > 2
       ? partes[0] + '.' + partes.slice(1).join('')
       : limpio;
+
+    setErrorGuardar(null);
     setValores((prev) => ({ ...prev, [dia]: valido }));
   };
 
-  const handleBlur = async (dia: number) => {
+  const montoIngresado = (dia: number): number =>
+    parseFloat(valores[dia] ?? '') || 0;
+
+  const registroGuardado = (dia: number) =>
+    cajaPorDia.find((registro) => registro.dia_numero === dia);
+
+  const hayCambioPendiente = (dia: number): boolean => {
+    const registro = registroGuardado(dia);
     const texto = valores[dia] ?? '';
-    const monto = parseFloat(texto) || 0;
+
+    if (!registro) return texto !== '';
+    return montoIngresado(dia) !== registro.monto_efectivo;
+  };
+
+  const cambiosPendientes = dias
+    .filter(hayCambioPendiente)
+    .map((dia): CajaDiaInput => ({
+      turno_id: turnoId,
+      dia_numero: dia,
+      monto_efectivo: montoIngresado(dia),
+    }));
+
+  const handleGuardarCambios = async () => {
+    if (cambiosPendientes.length === 0) return;
 
     try {
-      setGuardando((prev) => ({ ...prev, [dia]: true }));
-      await onGuardar({
-        turno_id: turnoId,
-        dia_numero: dia,
-        monto_efectivo: monto,
-      });
-    } catch (e) {
-      console.error('[SeccionCajaPorDia] handleBlur:', e);
+      setGuardando(true);
+      setErrorGuardar(null);
+      await onGuardar(cambiosPendientes);
+    } catch (error) {
+      console.error('[SeccionCajaPorDia] handleGuardarCambios:', error);
+      setErrorGuardar('No se pudieron guardar los cambios. Inténtalo otra vez.');
     } finally {
-      setGuardando((prev) => ({ ...prev, [dia]: false }));
+      setGuardando(false);
     }
   };
 
-  const totalEfectivo = dias.reduce((acc, dia) => {
-    return acc + (parseFloat(valores[dia] ?? '0') || 0);
-  }, 0);
+  const totalEfectivo = dias.reduce(
+    (acumulado, dia) => acumulado + montoIngresado(dia),
+    0
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.descripcion}>
         Ingresa el efectivo recibido en caja separado por cada día del turno.
-        El monto se guarda automáticamente al salir del campo.
+        Puedes editar varios días y guardar todos los cambios juntos.
       </Text>
 
-      {/* Total acumulado */}
       <View style={styles.totalBadge}>
         <Text style={styles.totalLabel}>Total efectivo en caja</Text>
         <Text style={styles.totalValor}>{formatMoneda(totalEfectivo)}</Text>
       </View>
 
-      {/* Un input por día */}
       {dias.map((dia) => {
         const valor = valores[dia] ?? '';
-        const monto = parseFloat(valor) || 0;
+        const monto = montoIngresado(dia);
+        const registro = registroGuardado(dia);
+        const pendiente = hayCambioPendiente(dia);
         const tieneValor = monto > 0;
-        const estaGuardando = guardando[dia] ?? false;
 
         return (
           <View key={dia} style={styles.fila}>
-            {/* Label del día */}
             <View style={styles.diaInfo}>
               <View style={styles.diaBadge}>
                 <Text style={styles.diaBadgeTexto}>{dia}</Text>
@@ -106,67 +125,89 @@ export function SeccionCajaPorDia({
               <Text style={styles.diaTitulo}>Día {dia}</Text>
             </View>
 
-            {/* Input */}
             <View style={styles.inputWrapper}>
               <TextInput
                 style={[
                   styles.inputMonto,
                   tieneValor && styles.inputMontoActivo,
+                  pendiente && styles.inputMontoPendiente,
                 ]}
                 value={valor}
-                onChangeText={(t) => handleChangeText(dia, t)}
-                onBlur={() => handleBlur(dia)}
+                onChangeText={(texto) => handleChangeText(dia, texto)}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={Colors.textDisabled}
                 selectTextOnFocus
-                returnKeyType="done"
+                returnKeyType="next"
+                accessibilityLabel={`Efectivo del día ${dia} en CUP`}
               />
               <Text style={styles.monedaLabel}>CUP</Text>
             </View>
 
-            {/* Indicador de guardado */}
             <View style={styles.estadoIndicador}>
-              {estaGuardando ? (
-                <MaterialCommunityIcons
-                  name="loading"
-                  size={16}
-                  color={Colors.textSecondary}
-                />
-              ) : tieneValor ? (
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={16}
-                  color={Colors.accentSuccess}
-                />
+              {guardando && pendiente ? (
+                <MaterialCommunityIcons name="loading" size={16} color={Colors.textSecondary} />
+              ) : pendiente ? (
+                <MaterialCommunityIcons name="pencil-circle" size={17} color={Colors.accentWarning} />
+              ) : registro ? (
+                <MaterialCommunityIcons name="check-circle" size={16} color={Colors.accentSuccess} />
               ) : (
-                <MaterialCommunityIcons
-                  name="circle-outline"
-                  size={16}
-                  color={Colors.textDisabled}
-                />
+                <MaterialCommunityIcons name="circle-outline" size={16} color={Colors.textDisabled} />
               )}
             </View>
           </View>
         );
       })}
 
-      {/* Nota sobre el guardado */}
-      <View style={styles.nota}>
-        <MaterialCommunityIcons
-          name="information-outline"
-          size={13}
-          color={Colors.textDisabled}
-        />
-        <Text style={styles.notaTexto}>
-          El monto se guarda automáticamente al tocar fuera del campo.
-        </Text>
-      </View>
+      {cambiosPendientes.length > 0 ? (
+        <View style={styles.guardarCard}>
+          <View style={styles.guardarInfo}>
+            <MaterialCommunityIcons
+              name="content-save-edit-outline"
+              size={20}
+              color={Colors.accentWarning}
+            />
+            <View style={styles.guardarTextos}>
+              <Text style={styles.guardarTitulo}>
+                {cambiosPendientes.length} {cambiosPendientes.length === 1 ? 'cambio pendiente' : 'cambios pendientes'}
+              </Text>
+              <Text style={styles.guardarDescripcion}>
+                Revisa los montos y guárdalos cuando estén listos.
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.botonGuardar, guardando && styles.botonGuardarDeshabilitado]}
+            onPress={handleGuardarCambios}
+            disabled={guardando}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Guardar ${cambiosPendientes.length} cambios de caja`}
+          >
+            <MaterialCommunityIcons
+              name={guardando ? 'loading' : 'content-save'}
+              size={17}
+              color={Colors.textOnAccent}
+            />
+            <Text style={styles.botonGuardarTexto}>
+              {guardando ? 'Guardando...' : 'Guardar cambios'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : cajaPorDia.length > 0 ? (
+        <View style={styles.guardadoInfo}>
+          <MaterialCommunityIcons name="check-circle" size={16} color={Colors.accentSuccess} />
+          <Text style={styles.guardadoInfoTexto}>Los montos ingresados están guardados</Text>
+        </View>
+      ) : null}
+
+      {errorGuardar && <Text style={styles.errorGuardar}>{errorGuardar}</Text>}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {},
   descripcion: {
     fontFamily: Typography.fontFamily,
@@ -193,90 +234,142 @@ const styles = StyleSheet.create({
   },
   totalValor: {
     fontFamily: Typography.fontFamilyBold,
-    fontSize: Typography.size.xl,
+    fontSize: Typography.size.lg,
     color: Colors.accentSuccess,
   },
   fila: {
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.divider,
   },
   diaInfo: {
+    width: 70,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    flex: 1,
+    gap: Spacing.xs,
   },
   diaBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.bgElevated,
+    width: 24,
+    height: 24,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.bgElevated,
   },
   diaBadgeTexto: {
     fontFamily: Typography.fontFamilyBold,
-    fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
+    fontSize: Typography.size.xs,
+    color: Colors.accent,
   },
   diaTitulo: {
-    fontFamily: Typography.fontFamilySemiBold,
-    fontSize: Typography.size.md,
+    fontFamily: Typography.fontFamilyMedium,
+    fontSize: Typography.size.sm,
     color: Colors.textPrimary,
   },
   inputWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
   },
   inputMonto: {
-    width: 120,
-    height: 46,
-    backgroundColor: Colors.bgElevated,
-    borderRadius: Radius.md,
+    flex: 1,
+    height: 40,
     borderWidth: 1,
     borderColor: Colors.border,
-    fontFamily: Typography.fontFamilyBold,
-    fontSize: Typography.size.lg,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.bgInput,
     color: Colors.textPrimary,
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.md,
     textAlign: 'right',
-    paddingHorizontal: Spacing.md,
   },
   inputMontoActivo: {
     borderColor: Colors.accentSuccess,
-    color: Colors.accentSuccess,
-    backgroundColor: 'rgba(52,199,123,0.06)',
+  },
+  inputMontoPendiente: {
+    borderColor: Colors.accentWarning,
   },
   monedaLabel: {
+    marginLeft: Spacing.sm,
+    width: 30,
     fontFamily: Typography.fontFamilyMedium,
-    fontSize: Typography.size.sm,
+    fontSize: Typography.size.xs,
     color: Colors.textSecondary,
-    width: 32,
   },
   estadoIndicador: {
     width: 20,
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
-  nota: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
+  guardarCard: {
     marginTop: Spacing.lg,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(240,180,41,0.32)',
+    backgroundColor: 'rgba(240,180,41,0.08)',
   },
-  notaTexto: {
+  guardarInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  guardarTextos: {
+    flex: 1,
+    gap: 2,
+  },
+  guardarTitulo: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.sm,
+    color: Colors.textPrimary,
+  },
+  guardarDescripcion: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.xs,
-    color: Colors.textDisabled,
-    flex: 1,
-    lineHeight: 16,
+    color: Colors.textSecondary,
+    lineHeight: 17,
   },
-});
+  botonGuardar: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.accent,
+  },
+  botonGuardarDeshabilitado: {
+    opacity: 0.7,
+  },
+  botonGuardarTexto: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.sm,
+    color: Colors.textOnAccent,
+  },
+  guardadoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  guardadoInfoTexto: {
+    fontFamily: Typography.fontFamilyMedium,
+    fontSize: Typography.size.xs,
+    color: Colors.accentSuccess,
+  },
+  errorGuardar: {
+    marginTop: Spacing.sm,
+    fontFamily: Typography.fontFamily,
+    fontSize: Typography.size.xs,
+    color: Colors.accentDanger,
+    textAlign: 'center',
+  },
+  });
+}

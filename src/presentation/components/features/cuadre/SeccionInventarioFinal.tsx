@@ -4,8 +4,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ItemFinal } from '../../../../presentation/hooks/useInventarioFinal';
 import { ItemInventarioTurno } from '../../../../domain/entities/InventarioTurno';
 import { Entrada } from '../../../../domain/entities/Entrada';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
+import { useTheme } from '../../../hooks/useTheme';
 
 interface SeccionInventarioFinalProps {
   items: ItemFinal[];
@@ -24,6 +25,8 @@ export function SeccionInventarioFinal({
   onGuardar,
   guardando,
 }: SeccionInventarioFinalProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   if (items.length === 0) {
     return (
       <View style={styles.vacio}>
@@ -180,7 +183,8 @@ export function SeccionInventarioFinal({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {},
   descripcion: {
     fontFamily: Typography.fontFamily,
@@ -355,4 +359,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-});
+  });
+}

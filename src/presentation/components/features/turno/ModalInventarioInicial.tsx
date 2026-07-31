@@ -5,8 +5,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Modal } from '../../ui/Modal';
 import { ItemInventarioTurno } from '../../../../domain/entities/InventarioTurno';
 import { TurnoRepository } from '../../../../data/repositories/TurnoRepository';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda, formatFechaHora } from '../../../../utils/formatters';
+import { useTheme } from '../../../hooks/useTheme';
 
 interface ModalInventarioInicialProps {
   visible: boolean;
@@ -21,6 +22,8 @@ export function ModalInventarioInicial({
   turnoId,
   fechaApertura,
 }: ModalInventarioInicialProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [items, setItems] = useState<ItemInventarioTurno[]>([]);
   const [cargando, setCargando] = useState(true);
 
@@ -122,7 +125,8 @@ export function ModalInventarioInicial({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   fecha: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
@@ -273,4 +277,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     color: Colors.textSecondary,
   },
-});
+  });
+}

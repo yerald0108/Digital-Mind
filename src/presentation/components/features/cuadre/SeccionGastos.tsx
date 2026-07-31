@@ -8,9 +8,10 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { Gasto, GastoInput } from '../../../../domain/entities/Gasto';
 import { gastoSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
 import { z } from 'zod';
+import { useTheme } from '../../../hooks/useTheme';
 
 type FormData = z.infer<typeof gastoSchema>;
 
@@ -22,6 +23,8 @@ interface SeccionGastosProps {
 }
 
 export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionGastosProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [mostrarForm, setMostrarForm] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } =
@@ -157,7 +160,8 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {},
   descripcion: {
     fontFamily: Typography.fontFamily,
@@ -249,4 +253,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     color: Colors.accent,
   },
-});
+  });
+}

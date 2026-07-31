@@ -76,12 +76,16 @@ export const ProductoRepository = {
 
   async delete(id: number): Promise<void> {
     const db = getDatabase();
-    await db.runAsync('DELETE FROM inventario_turno WHERE producto_id = ?', [id]);
-    await db.runAsync('DELETE FROM entradas WHERE producto_id = ?', [id]);
-    await db.runAsync('DELETE FROM salidas_familiares WHERE producto_id = ?', [id]);
-    await db.runAsync('DELETE FROM cambios_precio WHERE producto_id = ?', [id]);
-    await db.runAsync('DELETE FROM mermas WHERE producto_id = ?', [id]);
-    await db.runAsync('DELETE FROM productos WHERE id = ?', [id]);
+    // Todas las eliminaciones en una sola transacción atómica.
+    // Si cualquier paso falla, SQLite revierte automáticamente todo.
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM inventario_turno WHERE producto_id = ?', [id]);
+      await db.runAsync('DELETE FROM entradas WHERE producto_id = ?', [id]);
+      await db.runAsync('DELETE FROM salidas_familiares WHERE producto_id = ?', [id]);
+      await db.runAsync('DELETE FROM cambios_precio WHERE producto_id = ?', [id]);
+      await db.runAsync('DELETE FROM mermas WHERE producto_id = ?', [id]);
+      await db.runAsync('DELETE FROM productos WHERE id = ?', [id]);
+    });
   },
 
   async getNextOrden(): Promise<number> {

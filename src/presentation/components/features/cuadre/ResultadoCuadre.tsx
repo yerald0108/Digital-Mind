@@ -1,15 +1,33 @@
 // src/presentation/components/features/cuadre/ResultadoCuadre.tsx
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { ResultadoCuadre as TResultado } from '../../../../domain/usecases/calcularCuadre';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
 
 interface ResultadoCuadreProps {
   resultado: TResultado;
 }
 
 export function ResultadoCuadreView({ resultado }: ResultadoCuadreProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
+  const [celebracionId, setCelebracionId] = useState(0);
+  const escalaCelebracion = useSharedValue(1);
+  const pulsoFaltante = useSharedValue(1);
+
   const colorEstado =
     resultado.estado === 'sobrante' ? Colors.accentWarning
     : resultado.estado === 'faltante' ? Colors.accentDanger
@@ -25,17 +43,90 @@ export function ResultadoCuadreView({ resultado }: ResultadoCuadreProps) {
     : resultado.estado === 'faltante' ? 'Faltante'
     : 'Cuadre exacto';
 
+  const esFaltanteSignificativo =
+    resultado.estado === 'faltante' &&
+    Math.abs(resultado.diferencia) >= Math.max(100, resultado.total_esperado * 0.05);
+
+  useEffect(() => {
+    if (resultado.estado === 'exacto') {
+      setCelebracionId((anterior) => anterior + 1);
+      escalaCelebracion.value = 0.9;
+      escalaCelebracion.value = withSequence(
+        withTiming(1.05, { duration: 220, easing: Easing.out(Easing.cubic) }),
+        withSpring(1, { damping: 9, stiffness: 170 })
+      );
+    } else {
+      escalaCelebracion.value = withTiming(1, { duration: 160 });
+    }
+
+    if (esFaltanteSignificativo) {
+      pulsoFaltante.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 180 }),
+          withTiming(0.32, { duration: 800, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      );
+    } else {
+      pulsoFaltante.value = withTiming(0, { duration: 180 });
+    }
+  }, [resultado, esFaltanteSignificativo, escalaCelebracion, pulsoFaltante]);
+
+  const celebracionStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: escalaCelebracion.value }],
+  }));
+
+  const alertaStyle = useAnimatedStyle(() => ({
+    opacity: pulsoFaltante.value,
+  }));
+
   return (
     <View style={styles.container}>
 
       {/* ── Resultado principal ── */}
-      <View style={[styles.resultadoPrincipal, { borderColor: colorEstado }]}>
+      <Animated.View
+        accessibilityLiveRegion="polite"
+        style={[
+          styles.resultadoPrincipal,
+          { borderColor: colorEstado },
+          resultado.estado === 'exacto' && styles.resultadoExacto,
+          resultado.estado === 'sobrante' && styles.resultadoSobrante,
+          resultado.estado === 'faltante' && styles.resultadoFaltante,
+          celebracionStyle,
+        ]}
+      >
+        {esFaltanteSignificativo && (
+          <Animated.View pointerEvents="none" style={[styles.alertaPulso, alertaStyle]} />
+        )}
+        {resultado.estado === 'exacto' && celebracionId > 0 && (
+          <View pointerEvents="none" style={styles.confetiCapa}>
+            {PIEZAS_CONFETI.map((pieza) => (
+              <PiezaConfeti key={pieza.id} pieza={pieza} celebracionId={celebracionId} />
+            ))}
+          </View>
+        )}
         <MaterialCommunityIcons name={iconoEstado} size={36} color={colorEstado} />
         <Text style={[styles.estadoLabel, { color: colorEstado }]}>{labelEstado}</Text>
         {resultado.estado !== 'exacto' && (
           <Text style={[styles.diferencia, { color: colorEstado }]}>
             {resultado.estado === 'sobrante' ? '+' : ''}{formatMoneda(resultado.diferencia)}
           </Text>
+        )}
+        <Text style={styles.estadoMensaje}>
+          {resultado.estado === 'exacto'
+            ? '¡Perfecto! El dinero real coincide con lo esperado.'
+            : resultado.estado === 'sobrante'
+              ? 'Hay más dinero del esperado. Revísalo antes de cerrar.'
+              : esFaltanteSignificativo
+                ? 'Faltante importante: revisa los registros antes de cerrar.'
+                : 'Hay un faltante por revisar antes de cerrar.'}
+        </Text>
+        {esFaltanteSignificativo && (
+          <View style={styles.alertaEtiqueta}>
+            <MaterialCommunityIcons name="alert" size={13} color={Colors.accentDanger} />
+            <Text style={styles.alertaEtiquetaTexto}>Requiere revisión</Text>
+          </View>
         )}
         <View style={styles.realVsEsperado}>
           <View style={styles.colItem}>
@@ -54,7 +145,7 @@ export function ResultadoCuadreView({ resultado }: ResultadoCuadreProps) {
             </Text>
           </View>
         </View>
-      </View>
+      </Animated.View>
 
       {/* ── Dinero real en caja ── */}
       <View style={styles.seccion}>
@@ -223,6 +314,54 @@ export function ResultadoCuadreView({ resultado }: ResultadoCuadreProps) {
   );
 }
 
+const PIEZAS_CONFETI = [
+  { id: 'a', izquierda: '10%', desplazamientoX: -26, retraso: 0, color: '#4F8EF7', giro: -190 },
+  { id: 'b', izquierda: '20%', desplazamientoX: 20, retraso: 60, color: '#F0B429', giro: 180 },
+  { id: 'c', izquierda: '32%', desplazamientoX: -12, retraso: 120, color: '#34C77B', giro: -240 },
+  { id: 'd', izquierda: '46%', desplazamientoX: 24, retraso: 20, color: '#E85454', giro: 210 },
+  { id: 'e', izquierda: '59%', desplazamientoX: -22, retraso: 150, color: '#7B9FE0', giro: -180 },
+  { id: 'f', izquierda: '72%', desplazamientoX: 15, retraso: 90, color: '#F0B429', giro: 250 },
+  { id: 'g', izquierda: '84%', desplazamientoX: -14, retraso: 180, color: '#34C77B', giro: -210 },
+] as const;
+
+interface PiezaConfetiProps {
+  pieza: typeof PIEZAS_CONFETI[number];
+  celebracionId: number;
+}
+
+function PiezaConfeti({ pieza, celebracionId }: PiezaConfetiProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
+  const progreso = useSharedValue(0);
+
+  useEffect(() => {
+    progreso.value = 0;
+    progreso.value = withTiming(1, {
+      duration: 980,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [celebracionId, progreso]);
+
+  const estiloAnimado = useAnimatedStyle(() => ({
+    opacity: interpolate(progreso.value, [0, 0.1, 0.82, 1], [0, 1, 1, 0]),
+    transform: [
+      { translateX: interpolate(progreso.value, [0, 1], [0, pieza.desplazamientoX]) },
+      { translateY: interpolate(progreso.value, [0, 1], [-14, 98]) },
+      { rotate: `${interpolate(progreso.value, [0, 1], [0, pieza.giro])}deg` },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.confeti,
+        { left: pieza.izquierda, backgroundColor: pieza.color },
+        estiloAnimado,
+      ]}
+    />
+  );
+}
+
 // ── Componentes helper ────────────────────────────────────────
 interface FilaDetalleProps {
   label: string;
@@ -234,6 +373,8 @@ interface FilaDetalleProps {
 }
 
 function FilaDetalle({ label, valor, color, icono, negativo, destacado }: FilaDetalleProps) {
+  const { C: Colors } = useTheme();
+  const estilos = crearEstilosDetalle(Colors);
   return (
     <View style={[estilos.fila, destacado && estilos.filaDestacada]}>
       <MaterialCommunityIcons name={icono} size={15} color={color} style={estilos.filaIcono} />
@@ -255,6 +396,8 @@ interface GridItemProps {
 }
 
 function GridItem({ label, valor, color, icono, prefijo, destacado }: GridItemProps) {
+  const { C: Colors } = useTheme();
+  const estilos = crearEstilosDetalle(Colors);
   const mostrar = prefijo && valor > 0;
   return (
     <View style={[estilos.gridItem, destacado && estilos.gridItemDestacado]}>
@@ -269,7 +412,8 @@ function GridItem({ label, valor, color, icono, prefijo, destacado }: GridItemPr
   );
 }
 
-const estilos = StyleSheet.create({
+function crearEstilosDetalle(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
   filaDestacada: { backgroundColor: Colors.bgElevated, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, marginVertical: 2 },
   filaIcono: { marginRight: Spacing.sm },
@@ -282,12 +426,15 @@ const estilos = StyleSheet.create({
   gridIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 },
   gridLabel: { fontFamily: Typography.fontFamily, fontSize: 9, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
   gridValor: { fontFamily: Typography.fontFamilyBold, fontSize: Typography.size.md, color: Colors.textPrimary },
-});
+  });
+}
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {},
   // Resultado principal
   resultadoPrincipal: {
+    overflow: 'hidden',
     alignItems: 'center',
     backgroundColor: Colors.bgSurface,
     borderRadius: Radius.xl,
@@ -298,6 +445,47 @@ const styles = StyleSheet.create({
   },
   estadoLabel: { fontFamily: Typography.fontFamilyBold, fontSize: Typography.size.xl },
   diferencia: { fontFamily: Typography.fontFamilyExtraBold, fontSize: Typography.size.display },
+  estadoMensaje: {
+    maxWidth: 270,
+    fontFamily: Typography.fontFamily,
+    fontSize: Typography.size.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  resultadoExacto: { backgroundColor: 'rgba(52,199,123,0.08)' },
+  resultadoSobrante: { backgroundColor: 'rgba(240,180,41,0.08)' },
+  resultadoFaltante: { backgroundColor: 'rgba(232,84,84,0.08)' },
+  confetiCapa: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  confeti: {
+    position: 'absolute',
+    top: 34,
+    width: 7,
+    height: 12,
+    borderRadius: 2,
+  },
+  alertaPulso: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(232,84,84,0.18)',
+  },
+  alertaEtiqueta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(232,84,84,0.32)',
+    backgroundColor: 'rgba(232,84,84,0.10)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  alertaEtiquetaTexto: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.xs,
+    color: Colors.accentDanger,
+  },
   realVsEsperado: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, marginTop: Spacing.sm },
   colItem: { alignItems: 'center' },
   colLabel: { fontFamily: Typography.fontFamily, fontSize: Typography.size.xs, color: Colors.textSecondary, marginBottom: 2 },
@@ -339,4 +527,5 @@ const styles = StyleSheet.create({
   gananciaCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, padding: Spacing.md, marginTop: Spacing.sm },
   gananciaLabel: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.sm, color: Colors.textPrimary },
   gananciaValor: { fontFamily: Typography.fontFamilyExtraBold, fontSize: Typography.size.xl },
-});
+  });
+}

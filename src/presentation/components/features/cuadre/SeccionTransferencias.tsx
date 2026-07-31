@@ -8,9 +8,10 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { Transferencia, TransferenciaInput } from '../../../../domain/entities/Transferencia';
 import { transferenciaSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
 import { z } from 'zod';
+import { useTheme } from '../../../hooks/useTheme';
 
 type FormData = z.infer<typeof transferenciaSchema>;
 
@@ -27,6 +28,8 @@ export function SeccionTransferencias({
   onCrear,
   onEliminar,
 }: SeccionTransferenciasProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [mostrarForm, setMostrarForm] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } =
@@ -112,7 +115,8 @@ export function SeccionTransferencias({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {},
   totalBadge: {
     flexDirection: 'row',
@@ -184,4 +188,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     color: Colors.accent,
   },
-});
+  });
+}

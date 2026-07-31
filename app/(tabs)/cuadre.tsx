@@ -24,12 +24,14 @@ import { SeccionUSD } from '../../src/presentation/components/features/cuadre/Se
 import { SeccionGastos } from '../../src/presentation/components/features/cuadre/SeccionGastos';
 import { SeccionCajaPorDia } from '../../src/presentation/components/features/cuadre/SeccionCajaPorDia';
 import { ResultadoCuadreView } from '../../src/presentation/components/features/cuadre/ResultadoCuadre';
+import { BarraProgresoCuadre } from '../../src/presentation/components/features/cuadre/BarraProgresoCuadre';
 import { TransferenciaInput } from '../../src/domain/entities/Transferencia';
 import { RegistroUSDInput } from '../../src/domain/entities/RegistroUSD';
 import { formatMoneda } from '../../src/utils/formatters';
 import { GastoInput } from '../../src/domain/entities/Gasto';
 import { CajaDiaInput } from '../../src/domain/entities/CajaDia';
-import { Colors, Typography, Spacing, AccentLine, Radius } from '../../src/constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../src/constants/theme';
+import { useTheme } from '../../src/presentation/hooks/useTheme';
 
 type Seccion = 'inventario' | 'transferencias' | 'usd' | 'gastos' | 'caja' | 'resultado';
 
@@ -47,6 +49,8 @@ const SECCIONES: {
 ];
 
 export default function CuadreScreen() {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const toast = useToast();
   const { turno, cargando: cargandoTurno, recargar: recargarTurno } = useTurno();
   const { productos } = useProductos();
@@ -61,6 +65,19 @@ export default function CuadreScreen() {
     productos,
     turnoId ?? 0
   );
+
+  const seccionesCompletadas: Record<Seccion, boolean> = {
+    inventario: (datos?.inventarioFinal.length ?? 0) > 0,
+    transferencias: (datos?.transferencias.length ?? 0) > 0,
+    usd: (datos?.registrosUSD.length ?? 0) > 0,
+    gastos: (datos?.gastos.length ?? 0) > 0,
+    caja: new Set(datos?.cajaPorDia.map((registro) => registro.dia_numero) ?? []).size >=
+      (turno?.dias_duracion ?? 1),
+    resultado: resultado !== null,
+  };
+  const totalSeccionesCompletadas = Object.values(seccionesCompletadas)
+    .filter(Boolean)
+    .length;
 
   // Recargar el estado del turno cada vez que la pantalla recibe el foco.
   // Si el turno se cerro desde la pantalla de Inicio, useTurno en esta
@@ -189,7 +206,7 @@ export default function CuadreScreen() {
   const handleCrearGasto = async (input: GastoInput) => {
     await MovimientoRepository.crearGasto(input);
     await cargarDatos(turno.id);
-    toast.exito('Gasto registrado', input.producto_nombre);
+    toast.exito('Gasto registrado', input.concepto ?? formatMoneda(input.monto));
   };
 
   const handleEliminarGasto = async (id: number) => {
@@ -211,9 +228,13 @@ export default function CuadreScreen() {
     );
   };
 
-  const handleGuardarCajaDia = async (input: CajaDiaInput) => {
-    await MovimientoRepository.guardarCajaDia(input);
+  const handleGuardarCajaPorDia = async (inputs: CajaDiaInput[]) => {
+    await MovimientoRepository.guardarCajaPorDia(inputs);
     await cargarDatos(turno.id);
+    toast.exito(
+      'Caja guardada',
+      `${inputs.length} ${inputs.length === 1 ? 'día actualizado' : 'días actualizados'}`
+    );
   };
 
   const handleCalcular = () => {
@@ -254,6 +275,10 @@ export default function CuadreScreen() {
             <Text style={styles.botonCalcularTexto}>Calcular</Text>
           </TouchableOpacity>
         </View>
+        <BarraProgresoCuadre
+          completadas={totalSeccionesCompletadas}
+          total={SECCIONES.length}
+        />
       </View>
 
       {/* ── Navegación horizontal fija ── */}
@@ -266,12 +291,16 @@ export default function CuadreScreen() {
         >
           {SECCIONES.map((s) => {
             const activa = seccionActiva === s.id;
+            const completada = seccionesCompletadas[s.id];
             return (
               <TouchableOpacity
                 key={s.id}
                 style={[styles.navItem, activa && styles.navItemActivo]}
                 onPress={() => setSeccionActiva(s.id)}
                 activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activa }}
+                accessibilityLabel={`${s.label}: ${completada ? 'con datos' : 'sin datos'}`}
               >
                 <MaterialCommunityIcons
                   name={s.icon}
@@ -281,6 +310,13 @@ export default function CuadreScreen() {
                 <Text style={[styles.navLabel, activa && styles.navLabelActivo]}>
                   {s.label}
                 </Text>
+                {completada && (
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={14}
+                    color={Colors.accentSuccess}
+                  />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -337,7 +373,7 @@ export default function CuadreScreen() {
             turnoId={turno.id}
             diasDuracion={turno.dias_duracion}
             cajaPorDia={datos.cajaPorDia}
-            onGuardar={handleGuardarCajaDia}
+            onGuardar={handleGuardarCajaPorDia}
           />
         )}
 
@@ -404,7 +440,8 @@ export default function CuadreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.bgPrimary,
@@ -429,7 +466,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xxl,
     color: Colors.textPrimary,
   },
-  accentLine: { ...AccentLine },
+  accentLine: {
+    height: 2,
+    backgroundColor: Colors.accent,
+    width: 36,
+    borderRadius: Radius.full,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
+  },
   subtitulo: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
@@ -498,7 +542,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     // Espacio extra al final para que el contenido no quede
     // detras de la barra de navegacion flotante
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
 
   // ── Estados ──
@@ -557,4 +601,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.md,
     color: Colors.textOnAccent,
   },
-});
+  });
+}

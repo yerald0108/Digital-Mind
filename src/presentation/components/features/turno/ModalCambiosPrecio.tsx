@@ -12,9 +12,10 @@ import { SelectorProducto } from '../../ui/SelectorProducto';
 import { Producto } from '../../../../domain/entities/Producto';
 import { CambioPrecio, CambioPrecioInput } from '../../../../domain/entities/CambioPrecio';
 import { cambioPrecioSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatFechaHora, formatMoneda } from '../../../../utils/formatters';
 import { z } from 'zod';
+import { useTheme } from '../../../hooks/useTheme';
 
 type FormData = z.infer<typeof cambioPrecioSchema>;
 
@@ -33,6 +34,8 @@ export function ModalCambiosPrecio({
   visible, onClose, turnoId, productos, cambios,
   onCrear, onActualizar, onEliminar,
 }: ModalCambiosPrecioProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
@@ -205,7 +208,8 @@ export function ModalCambiosPrecio({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   formulario: { marginTop: Spacing.md },
   titulo: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.md, color: Colors.textPrimary, marginBottom: Spacing.sm },
   aviso: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, backgroundColor: 'rgba(240,180,41,0.1)', borderRadius: Radius.sm, padding: Spacing.sm, marginBottom: Spacing.md, borderWidth: 1, borderColor: 'rgba(240,180,41,0.2)' },
@@ -230,4 +234,5 @@ const styles = StyleSheet.create({
   botonEliminar: { padding: Spacing.xs, marginLeft: Spacing.xs },
   vacio: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.md },
   vacioTexto: { fontFamily: Typography.fontFamily, fontSize: Typography.size.sm, color: Colors.textDisabled },
-});
+  });
+}

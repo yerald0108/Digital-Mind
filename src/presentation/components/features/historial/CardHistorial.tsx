@@ -2,8 +2,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HistorialTurno } from '../../../../domain/entities/HistorialTurno';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda, formatFecha, formatFechaHora, formatDias } from '../../../../utils/formatters';
+import { useTheme } from '../../../../presentation/hooks/useTheme';
 
 interface CardHistorialProps {
   registro: HistorialTurno;
@@ -12,6 +13,8 @@ interface CardHistorialProps {
 }
 
 export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const colorEstado =
     registro.estado_cuadre === 'sobrante' ? Colors.accentWarning
     : registro.estado_cuadre === 'faltante' ? Colors.accentDanger
@@ -192,6 +195,8 @@ function DatoItem({ label, valor, icono, color }: {
   label: string; valor: string;
   icono: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string;
 }) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   return (
     <View style={styles.datoItem}>
       <MaterialCommunityIcons name={icono} size={14} color={color} />
@@ -201,7 +206,8 @@ function DatoItem({ label, valor, icono, color }: {
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   card: {
     backgroundColor: Colors.bgSurface,
     borderRadius: Radius.lg,
@@ -305,4 +311,5 @@ const styles = StyleSheet.create({
     color: Colors.accent,
   },
   botonEliminar: { padding: Spacing.xs },
-});
+  });
+}

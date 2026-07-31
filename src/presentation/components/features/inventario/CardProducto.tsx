@@ -2,8 +2,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Producto } from '../../../../domain/entities/Producto';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
+import { useTheme } from '../../../hooks/useTheme';
 
 interface CardProductoProps {
   producto: Producto;
@@ -18,6 +19,8 @@ export function CardProducto({
   onEditar,
   onEliminar,
 }: CardProductoProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const margen = producto.precio_venta - producto.precio_costo;
   const esPositivo = margen >= 0;
 
@@ -111,7 +114,8 @@ export function CardProducto({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -199,4 +203,5 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(232, 84, 84, 0.3)',
     backgroundColor: 'rgba(232, 84, 84, 0.08)',
   },
-});
+  });
+}

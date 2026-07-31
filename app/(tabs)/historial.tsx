@@ -17,10 +17,13 @@ import { useToast } from '../../src/presentation/hooks/useToast';
 import { CardHistorial } from '../../src/presentation/components/features/historial/CardHistorial';
 import { ModalDetalleHistorial } from '../../src/presentation/components/features/historial/ModalDetalleHistorial';
 import { HistorialTurno } from '../../src/domain/entities/HistorialTurno';
-import { Colors, Typography, Spacing, AccentLine, Radius } from '../../src/constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../src/constants/theme';
 import { formatMoneda } from '../../src/utils/formatters';
+import { useTheme } from '../../src/presentation/hooks/useTheme';
 
 export default function HistorialScreen() {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const { historial, cargando, recargar, eliminar } = useHistorial();
   const toast = useToast();
   useFocusEffect(
@@ -138,7 +141,8 @@ export default function HistorialScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.bgPrimary,
@@ -156,7 +160,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xxl,
     color: Colors.textPrimary,
   },
-  accentLine: { ...AccentLine },
+  accentLine: {
+    height: 2,
+    backgroundColor: Colors.accent,
+    width: 36,
+    borderRadius: Radius.full,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
+  },
   subtitulo: {
     fontFamily: Typography.fontFamily,
     fontSize: Typography.size.sm,
@@ -211,7 +222,7 @@ const styles = StyleSheet.create({
   },
   lista: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
+    paddingBottom: 120,
   },
   centrado: {
     flex: 1,
@@ -232,4 +243,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-});
+  });
+}

@@ -1,6 +1,7 @@
 // src/presentation/components/ui/Badge.tsx
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Colors, Typography, Spacing, Radius } from '../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../constants/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
 
@@ -11,6 +12,9 @@ interface BadgeProps {
 }
 
 export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
+  const variantStyles = crearVariantes(Colors);
   return (
     <View style={[styles.base, variantStyles[variant].container, style]}>
       <Text style={[styles.label, variantStyles[variant].text]}>{label}</Text>
@@ -18,7 +22,8 @@ export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
   );
 }
 
-const variantStyles: Record<BadgeVariant, { container: ViewStyle; text: any }> = {
+function crearVariantes(Colors: ReturnType<typeof getColors>): Record<BadgeVariant, { container: ViewStyle; text: any }> {
+  return {
   success: {
     container: { backgroundColor: 'rgba(52, 199, 123, 0.15)', borderColor: 'rgba(52, 199, 123, 0.3)' },
     text: { color: Colors.accentSuccess },
@@ -39,9 +44,11 @@ const variantStyles: Record<BadgeVariant, { container: ViewStyle; text: any }> =
     container: { backgroundColor: Colors.bgElevated, borderColor: Colors.border },
     text: { color: Colors.textSecondary },
   },
-};
+  };
+}
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   base: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
@@ -54,4 +61,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs,
     letterSpacing: 0.3,
   },
-});
+  });
+}

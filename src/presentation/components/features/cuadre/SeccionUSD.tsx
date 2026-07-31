@@ -8,9 +8,10 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { RegistroUSD, RegistroUSDInput } from '../../../../domain/entities/RegistroUSD';
 import { usdSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
 import { z } from 'zod';
+import { useTheme } from '../../../hooks/useTheme';
 
 type FormData = z.infer<typeof usdSchema>;
 
@@ -22,6 +23,8 @@ interface SeccionUSDProps {
 }
 
 export function SeccionUSD({ turnoId, registros, onCrear, onEliminar }: SeccionUSDProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [mostrarForm, setMostrarForm] = useState(false);
 
   const { control, handleSubmit, reset, watch, formState: { errors, isSubmitting } } =
@@ -145,7 +148,8 @@ export function SeccionUSD({ turnoId, registros, onCrear, onEliminar }: SeccionU
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {},
   descripcion: {
     fontFamily: Typography.fontFamily,
@@ -255,4 +259,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     color: Colors.accent,
   },
-});
+  });
+}

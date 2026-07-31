@@ -12,9 +12,10 @@ import { SelectorProducto } from '../../ui/SelectorProducto';
 import { Producto } from '../../../../domain/entities/Producto';
 import { Entrada, EntradaInput } from '../../../../domain/entities/Entrada';
 import { entradaSchema } from '../../../../utils/validators';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatFechaHora } from '../../../../utils/formatters';
 import { z } from 'zod';
+import { useTheme } from '../../../hooks/useTheme';
 
 type FormData = z.infer<typeof entradaSchema>;
 
@@ -33,6 +34,8 @@ export function ModalEntradas({
   visible, onClose, turnoId, productos, entradas,
   onCrear, onActualizar, onEliminar,
 }: ModalEntradasProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
@@ -177,7 +180,8 @@ export function ModalEntradas({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   formulario: { marginTop: Spacing.md },
   titulo: { fontFamily: Typography.fontFamilySemiBold, fontSize: Typography.size.md, color: Colors.textPrimary, marginBottom: Spacing.md },
   productoFijo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.bgElevated, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
@@ -194,4 +198,5 @@ const styles = StyleSheet.create({
   botonEliminar: { padding: Spacing.xs, marginLeft: Spacing.xs },
   vacio: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.md },
   vacioTexto: { fontFamily: Typography.fontFamily, fontSize: Typography.size.sm, color: Colors.textDisabled },
-});
+  });
+}

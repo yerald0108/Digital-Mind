@@ -2,8 +2,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Turno } from '../../../../domain/entities/Turno';
-import { Colors, Typography, Spacing, Radius } from '../../../../constants/theme';
+import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatFechaHora, formatDias } from '../../../../utils/formatters';
+import { useTheme } from '../../../hooks/useTheme';
 
 interface IndicadorTurnoProps {
   turno: Turno | null;
@@ -20,6 +21,8 @@ export function IndicadorTurno({
   onEditarDias,
   cerrando = false,  // ← VALOR POR DEFECTO
 }: IndicadorTurnoProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   const estaAbierto = turno?.estado === 'abierto';
 
   if (!turno || !estaAbierto) {
@@ -107,7 +110,8 @@ export function IndicadorTurno({
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   container: {
     backgroundColor: Colors.bgSurface,
     borderRadius: Radius.lg,
@@ -217,4 +221,5 @@ const styles = StyleSheet.create({
   botonCerrarTextoDeshabilitado: {
     color: Colors.textDisabled,
   },
-});
+  });
+}

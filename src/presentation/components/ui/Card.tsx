@@ -1,6 +1,7 @@
 // src/presentation/components/ui/Card.tsx
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { Colors, Spacing, Radius, Shadows } from '../../../constants/theme';
+import { getColors, Spacing, Radius, Shadows } from '../../../constants/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -10,6 +11,8 @@ interface CardProps {
 }
 
 export function Card({ children, style, elevated = false, noPadding = false }: CardProps) {
+  const { C: Colors } = useTheme();
+  const styles = crearEstilos(Colors);
   return (
     <View
       style={[
@@ -24,7 +27,8 @@ export function Card({ children, style, elevated = false, noPadding = false }: C
   );
 }
 
-const styles = StyleSheet.create({
+function crearEstilos(Colors: ReturnType<typeof getColors>) {
+  return StyleSheet.create({
   card: {
     backgroundColor: Colors.bgSurface,
     borderRadius: Radius.lg,
@@ -40,4 +44,5 @@ const styles = StyleSheet.create({
   noPadding: {
     padding: 0,
   },
-});
+  });
+}

@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Animated,
+  Dimensions,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Turno } from '../../../../domain/entities/Turno';
 import { TurnoRepository } from '../../../../data/repositories/TurnoRepository';
@@ -59,6 +61,43 @@ export function ModalResumenCierre({
 
   const [cargando, setCargando] = useState(false);
   const [resumen, setResumen] = useState<ResumenTurno | null>(null);
+
+  // ── Animaciones coordinadas: overlay fade + sheet slide ──────
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(Dimensions.get('window').height)).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Entrar: fade del overlay + slide del sheet simultáneos
+      Animated.parallel([
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          damping: 22,
+          stiffness: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // Salir: ambos se van juntos
+      Animated.parallel([
+        Animated.timing(overlayOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sheetTranslateY, {
+          toValue: Dimensions.get('window').height,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, overlayOpacity, sheetTranslateY]);
 
   // Cargar datos de BD al abrir (inventario final y caja — no están en index.tsx)
   useEffect(() => {
@@ -131,19 +170,30 @@ export function ModalResumenCierre({
     <RNModal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onCancelar}
     >
-      {/* Backdrop */}
-      <TouchableOpacity
-        style={[styles.overlay, { backgroundColor: Colors.overlay }]}
-        activeOpacity={1}
-        onPress={cerrando ? undefined : onCancelar}
-      />
+      {/* Backdrop animado — fade suave coordinado con el sheet */}
+      <Animated.View
+        style={[styles.overlay, { backgroundColor: Colors.overlay, opacity: overlayOpacity }]}
+        pointerEvents={visible ? 'auto' : 'none'}
+      >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={cerrando ? undefined : onCancelar}
+        />
+      </Animated.View>
 
-      {/* Sheet */}
-      <View style={[styles.sheet, { backgroundColor: Colors.bgSurface, borderColor: Colors.border }]}>
+      {/* Sheet animado — slide up con spring */}
+      <Animated.View
+        style={[
+          styles.sheet,
+          { backgroundColor: Colors.bgSurface, borderColor: Colors.border },
+          { transform: [{ translateY: sheetTranslateY }] },
+        ]}
+      >
 
         {/* Handle bar */}
         <View style={[styles.handle, { backgroundColor: Colors.border }]} />
@@ -345,7 +395,7 @@ export function ModalResumenCierre({
           </TouchableOpacity>
         </View>
 
-      </View>
+      </Animated.View>
     </RNModal>
   );
 }

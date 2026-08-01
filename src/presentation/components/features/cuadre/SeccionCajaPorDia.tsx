@@ -159,6 +159,9 @@ export function SeccionCajaPorDia({
         );
       })}
 
+      {/* Espaciador para que el teclado no tape el último campo al hacer foco */}
+      <View style={styles.espaciadorTeclado} />
+
       {cambiosPendientes.length > 0 ? (
         <View style={styles.guardarCard}>
           <View style={styles.guardarInfo}>
@@ -304,6 +307,9 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
   estadoIndicador: {
     width: 20,
     alignItems: 'flex-end',
+  },
+  espaciadorTeclado: {
+    height: 120,
   },
   guardarCard: {
     marginTop: Spacing.lg,

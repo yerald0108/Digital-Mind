@@ -33,16 +33,8 @@ export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProp
     : registro.estado_cuadre === 'exacto' ? 'Exacto'
     : 'Sin cuadre';
 
-  const confirmarEliminar = () => {
-    Alert.alert(
-      'Eliminar registro',
-      '¿Seguro que deseas eliminar este registro del historial? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(registro.id) },
-      ]
-    );
-  };
+  // La confirmación se maneja en historial.tsx para evitar el Alert doble.
+  const confirmarEliminar = () => onEliminar(registro.id);
 
   const handleCompartir = async () => {
     const sep = '─────────────────────';

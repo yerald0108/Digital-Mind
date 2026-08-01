@@ -66,10 +66,9 @@ export function useCuadre(): UseCuadreReturn {
 
       datosRef.current = nuevosDatos;
       setDatos(nuevosDatos);
-
-      if (inventarioFinal.length > 0) {
-        setResultado(calcularCuadre(nuevosDatos));
-      }
+      // El resultado solo se calcula cuando el usuario presiona "Calcular".
+      // No se dispara automáticamente al cargar datos para que la pantalla
+      // Resultado no aparezca sin que el usuario haya completado los pasos.
     } catch (e) {
       console.error('[useCuadre] cargarDatos:', e);
     } finally {

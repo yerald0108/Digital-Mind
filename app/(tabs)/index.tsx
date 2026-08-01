@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -18,6 +18,7 @@ import { ModalSalidasFamiliares } from '../../src/presentation/components/featur
 import { ModalCambiosPrecio } from '../../src/presentation/components/features/turno/ModalCambiosPrecio';
 import { ModalMermas } from '../../src/presentation/components/features/turno/ModalMermas';
 import { ModalInventarioInicial } from '../../src/presentation/components/features/turno/ModalInventarioInicial';
+import { ModalResumenCierre } from '../../src/presentation/components/features/turno/ModalResumenCierre';
 import { ModalConfiguracion } from '../../src/presentation/components/features/configuracion/ModalConfiguracion';
 import { Radius, Spacing, Typography } from '../../src/constants/theme';
 
@@ -31,13 +32,14 @@ type ModalActivo =
   | 'salidas'
   | 'cambios'
   | 'mermas'
-  | 'configuracion';
+  | 'configuracion'
+  | 'resumenCierre';
 
 export default function InicioScreen() {
   const { C, accentLine } = useTheme();
   const toast = useToast();
   const { turno, cargando, cerrando, abrirTurno, cerrarTurno, actualizarDias } = useTurno();
-  const { productos } = useProductos();
+  const { productos, crearProducto } = useProductos();
   const {
     entradas, salidasFamiliares, cambiosPrecio, mermas,
     crearEntrada, actualizarEntrada, eliminarEntrada,
@@ -65,26 +67,16 @@ export default function InicioScreen() {
   };
 
   // ── Cierre ────────────────────────────────────────────────
-  const handleCerrarTurno = () => {
-    Alert.alert(
-      'Cerrar turno',
-      '¿Estás seguro? Los movimientos se guardarán en el historial y se limpiarán.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar turno',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cerrarTurno();
-              toast.exito('Turno cerrado', 'El turno fue cerrado y guardado en el historial');
-            } catch {
-              toast.error('Error', 'No se pudo cerrar el turno');
-            }
-          },
-        },
-      ]
-    );
+  // Abre el bottom sheet de resumen en lugar del Alert nativo.
+  const handleCerrarTurno = () => setModalActivo('resumenCierre');
+
+  const handleConfirmarCierre = async () => {
+    try {
+      await cerrarTurno();
+      toast.exito('Turno cerrado', 'El turno fue cerrado y guardado en el historial');
+    } catch {
+      toast.error('Error', 'No se pudo cerrar el turno');
+    }
   };
 
   // ── Editar días ───────────────────────────────────────────
@@ -243,6 +235,11 @@ export default function InicioScreen() {
               await eliminarEntrada(id);
               toast.advertencia('Entrada eliminada', '');
             }}
+            onCrearProducto={async (input) => {
+              const nuevo = await crearProducto(input);
+              toast.exito('Producto creado', `"${nuevo.nombre}" añadido al inventario`);
+              return nuevo;
+            }}
           />
           <ModalSalidasFamiliares
             visible={modalActivo === 'salidas'}
@@ -291,6 +288,20 @@ export default function InicioScreen() {
               await eliminarMerma(id);
               toast.advertencia('Merma eliminada', '');
             }}
+          />
+          <ModalResumenCierre
+            visible={modalActivo === 'resumenCierre'}
+            turno={turno}
+            totalEntradas={entradas.length}
+            totalSalidas={salidasFamiliares.length}
+            totalMermas={mermas.length}
+            totalCambios={cambiosPrecio.length}
+            onConfirmar={async () => {
+              cerrar();
+              await handleConfirmarCierre();
+            }}
+            onCancelar={cerrar}
+            cerrando={cerrando}
           />
         </>
       )}

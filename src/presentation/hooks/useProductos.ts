@@ -9,7 +9,7 @@ interface UseProductosReturn {
   cargando: boolean;
   error: string | null;
   recargar: () => Promise<void>;
-  crearProducto: (input: Omit<ProductoInput, 'orden'>) => Promise<void>;
+  crearProducto: (input: Omit<ProductoInput, 'orden'>) => Promise<Producto>;
   actualizarProducto: (id: number, input: Partial<ProductoInput>) => Promise<void>;
   eliminarProducto: (id: number) => Promise<void>;
   reordenarProductos: (productos: Producto[]) => Promise<void>;
@@ -21,8 +21,10 @@ export function useProductos(): UseProductosReturn {
   const [error, setError] = useState<string | null>(null);
 
   // Cuando productosStore.version cambia significa que algún proceso externo
-  // (ej: cerrar turno) actualizó cantidades en SQLite — hay que releer.
+  // (ej: cerrar turno, crear producto desde Entradas) actualizó SQLite — hay que releer.
+  // Todas las instancias del hook en toda la app reaccionan automáticamente.
   const version = useProductosStore((s) => s.version);
+  const marcarActualizado = useProductosStore((s) => s.marcarActualizado);
 
   const recargar = useCallback(async () => {
     try {
@@ -43,12 +45,18 @@ export function useProductos(): UseProductosReturn {
   useEffect(() => { recargar(); }, [recargar, version]);
 
   const crearProducto = useCallback(
-    async (input: Omit<ProductoInput, 'orden'>) => {
+    async (input: Omit<ProductoInput, 'orden'>): Promise<Producto> => {
       const orden = await ProductoRepository.getNextOrden();
-      await ProductoRepository.create({ ...input, orden });
-      await recargar();
+      const id = await ProductoRepository.create({ ...input, orden });
+      // Notificar a TODAS las instancias de useProductos en la app
+      // (tab Inventario, tab Cuadre, etc.) para que recarguen.
+      marcarActualizado();
+      // Leer el producto recién creado para devolverlo al caller.
+      const nuevo = await ProductoRepository.getById(id);
+      if (!nuevo) throw new Error('No se pudo obtener el producto recién creado');
+      return nuevo;
     },
-    [recargar]
+    [marcarActualizado]
   );
 
   const actualizarProducto = useCallback(

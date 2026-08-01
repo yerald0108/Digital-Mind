@@ -163,6 +163,9 @@ export function SeccionInventarioFinal({
         );
       })}
 
+      {/* Espaciador para que el teclado no tape el último campo al hacer foco */}
+      <View style={styles.espaciadorTeclado} />
+
       {/* Botón guardar */}
       <TouchableOpacity
         style={[styles.botonGuardar, guardando && styles.botonGuardando]}
@@ -325,6 +328,9 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
   vendidoValor: {
     fontFamily: Typography.fontFamilySemiBold,
     color: Colors.accentSuccess,
+  },
+  espaciadorTeclado: {
+    height: 120,
   },
   botonGuardar: {
     flexDirection: 'row',

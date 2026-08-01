@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -53,7 +55,7 @@ export default function CuadreScreen() {
   const styles = crearEstilos(Colors);
   const toast = useToast();
   const { turno, cargando: cargandoTurno, recargar: recargarTurno } = useTurno();
-  const { productos } = useProductos();
+  const { productos, recargar: recargarProductos } = useProductos();
   const { datos, resultado, cargando, cargarDatos, guardarInventarioFinal, calcular } =
     useCuadre();
   const [seccionActiva, setSeccionActiva] = useState<Seccion>('inventario');
@@ -79,13 +81,15 @@ export default function CuadreScreen() {
     .filter(Boolean)
     .length;
 
-  // Recargar el estado del turno cada vez que la pantalla recibe el foco.
-  // Si el turno se cerro desde la pantalla de Inicio, useTurno en esta
-  // pantalla necesita consultar la DB de nuevo para detectar el cambio.
+  // Recargar el estado del turno y los productos cada vez que la pantalla
+  // recibe el foco. Esto resuelve que el Inventario Final quede vacío al
+  // llegar a la pantalla por primera vez después de abrir un turno, o que
+  // no incluya productos nuevos creados desde la pantalla de Entradas.
   useFocusEffect(
     useCallback(() => {
       recargarTurno();
-    }, [recargarTurno])
+      recargarProductos();
+    }, [recargarTurno, recargarProductos])
   );
 
   // Recargar los datos del cuadre cada vez que la pantalla recibe el foco.
@@ -324,11 +328,17 @@ export default function CuadreScreen() {
       </View>
 
       {/* ── Contenido scrollable independiente ── */}
+      <KeyboardAvoidingView
+        style={styles.contenidoScroll}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
       <ScrollView
         style={styles.contenidoScroll}
         contentContainerStyle={styles.contenidoPadding}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         {seccionActiva === 'inventario' && (
           <SeccionInventarioFinal
@@ -436,6 +446,7 @@ export default function CuadreScreen() {
   </View>
 )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

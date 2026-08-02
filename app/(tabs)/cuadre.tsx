@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -27,6 +26,7 @@ import { SeccionGastos } from '../../src/presentation/components/features/cuadre
 import { SeccionCajaPorDia } from '../../src/presentation/components/features/cuadre/SeccionCajaPorDia';
 import { ResultadoCuadreView } from '../../src/presentation/components/features/cuadre/ResultadoCuadre';
 import { BarraProgresoCuadre } from '../../src/presentation/components/features/cuadre/BarraProgresoCuadre';
+import { ModalConfirmacion } from '../../src/presentation/components/ui/ModalConfirmacion';
 import { TransferenciaInput } from '../../src/domain/entities/Transferencia';
 import { RegistroUSDInput } from '../../src/domain/entities/RegistroUSD';
 import { formatMoneda } from '../../src/utils/formatters';
@@ -67,6 +67,12 @@ export default function CuadreScreen() {
     productos,
     turnoId ?? 0
   );
+
+  // El estado solo necesita tipo e id
+  const [pendienteEliminar, setPendienteEliminar] = useState<{
+    tipo: 'transferencia' | 'usd' | 'gasto';
+    id: number;
+  } | null>(null);
 
   const seccionesCompletadas: Record<Seccion, boolean> = {
     inventario: (datos?.inventarioFinal.length ?? 0) > 0,
@@ -164,22 +170,7 @@ export default function CuadreScreen() {
   };
 
   const handleEliminarTransferencia = async (id: number) => {
-    Alert.alert(
-      'Eliminar transferencia',
-      '¿Estás seguro? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            await MovimientoRepository.eliminarTransferencia(id);
-            await cargarDatos(turno.id);
-            toast.advertencia('Transferencia eliminada', '');
-          },
-        },
-      ]
-    );
+    setPendienteEliminar({ tipo: 'transferencia', id });
   };
 
   const handleCrearUSD = async (input: RegistroUSDInput) => {
@@ -189,22 +180,7 @@ export default function CuadreScreen() {
   };
 
   const handleEliminarUSD = async (id: number) => {
-    Alert.alert(
-      'Eliminar registro USD',
-      '¿Estás seguro? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            await MovimientoRepository.eliminarRegistroUSD(id);
-            await cargarDatos(turno.id);
-            toast.advertencia('Registro USD eliminado', '');
-          },
-        },
-      ]
-    );
+    setPendienteEliminar({ tipo: 'usd', id });
   };
 
   const handleCrearGasto = async (input: GastoInput) => {
@@ -214,22 +190,7 @@ export default function CuadreScreen() {
   };
 
   const handleEliminarGasto = async (id: number) => {
-    Alert.alert(
-      'Eliminar gasto',
-      '¿Estás seguro? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            await MovimientoRepository.eliminarGasto(id);
-            await cargarDatos(turno.id);
-            toast.advertencia('Gasto eliminado', '');
-          },
-        },
-      ]
-    );
+    setPendienteEliminar({ tipo: 'gasto', id });
   };
 
   const handleGuardarCajaPorDia = async (inputs: CajaDiaInput[]) => {
@@ -239,6 +200,26 @@ export default function CuadreScreen() {
       'Caja guardada',
       `${inputs.length} ${inputs.length === 1 ? 'día actualizado' : 'días actualizados'}`
     );
+  };
+
+  const handleConfirmarEliminar = async () => {
+    if (!pendienteEliminar) return;
+    const { tipo, id } = pendienteEliminar;
+    setPendienteEliminar(null);
+
+    if (tipo === 'transferencia') {
+      await MovimientoRepository.eliminarTransferencia(id);
+      await cargarDatos(turno.id);
+      toast.advertencia('Transferencia eliminada', '');
+    } else if (tipo === 'usd') {
+      await MovimientoRepository.eliminarRegistroUSD(id);
+      await cargarDatos(turno.id);
+      toast.advertencia('Registro USD eliminado', '');
+    } else if (tipo === 'gasto') {
+      await MovimientoRepository.eliminarGasto(id);
+      await cargarDatos(turno.id);
+      toast.advertencia('Gasto eliminado', '');
+    }
   };
 
   const handleCalcular = () => {
@@ -253,6 +234,30 @@ export default function CuadreScreen() {
     calcular();
     setSeccionActiva('resultado');
     toast.exito('Cuadre calculado', 'El resultado está listo');
+  };
+
+  const getMensajeEliminar = () => {
+    if (!pendienteEliminar) return '';
+    switch (pendienteEliminar.tipo) {
+      case 'transferencia':
+        return `¿Eliminar la transferencia de "${pendienteEliminar}"?`;
+      case 'usd':
+        return `¿Eliminar el registro USD de "${pendienteEliminar}"?`;
+      case 'gasto':
+        return `¿Eliminar el gasto "${pendienteEliminar }"?`;
+    }
+  };
+
+  const getTituloEliminar = () => {
+    if (!pendienteEliminar) return '';
+    switch (pendienteEliminar.tipo) {
+      case 'transferencia':
+        return 'Eliminar transferencia';
+      case 'usd':
+        return 'Eliminar registro USD';
+      case 'gasto':
+        return 'Eliminar gasto';
+    }
   };
 
   return (
@@ -392,61 +397,70 @@ export default function CuadreScreen() {
         )}
 
         {seccionActiva === 'resultado' && !resultado && (
-  <View style={styles.checklistContainer}>
-    <Text style={styles.checklistTitulo}>Para calcular el cuadre necesitas:</Text>
+          <View style={styles.checklistContainer}>
+            <Text style={styles.checklistTitulo}>Para calcular el cuadre necesitas:</Text>
 
-    <View style={styles.checklistItem}>
-      <MaterialCommunityIcons
-        name={datos && datos.inventarioFinal.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
-        size={20}
-        color={datos && datos.inventarioFinal.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
-      />
-      <Text style={[
-        styles.checklistTexto,
-        datos && datos.inventarioFinal.length > 0 && styles.checklistCompletado
-      ]}>
-        Inventario final{datos && datos.inventarioFinal.length > 0 ? ' (completado)' : ' (pendiente)'}
-      </Text>
-    </View>
+            <View style={styles.checklistItem}>
+              <MaterialCommunityIcons
+                name={datos && datos.inventarioFinal.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                size={20}
+                color={datos && datos.inventarioFinal.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+              />
+              <Text style={[
+                styles.checklistTexto,
+                datos && datos.inventarioFinal.length > 0 && styles.checklistCompletado
+              ]}>
+                Inventario final{datos && datos.inventarioFinal.length > 0 ? ' (completado)' : ' (pendiente)'}
+              </Text>
+            </View>
 
-    <View style={styles.checklistItem}>
-      <MaterialCommunityIcons
-        name={datos && datos.cajaPorDia.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
-        size={20}
-        color={datos && datos.cajaPorDia.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
-      />
-      <Text style={[
-        styles.checklistTexto,
-        datos && datos.cajaPorDia.length > 0 && styles.checklistCompletado
-      ]}>
-        Caja por dia{datos && datos.cajaPorDia.length > 0 ? ' (completado)' : ' (pendiente)'}
-      </Text>
-    </View>
+            <View style={styles.checklistItem}>
+              <MaterialCommunityIcons
+                name={datos && datos.cajaPorDia.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                size={20}
+                color={datos && datos.cajaPorDia.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+              />
+              <Text style={[
+                styles.checklistTexto,
+                datos && datos.cajaPorDia.length > 0 && styles.checklistCompletado
+              ]}>
+                Caja por dia{datos && datos.cajaPorDia.length > 0 ? ' (completado)' : ' (pendiente)'}
+              </Text>
+            </View>
 
-    <View style={styles.checklistItem}>
-      <MaterialCommunityIcons
-        name="information-outline"
-        size={20}
-        color={Colors.textSecondary}
-      />
-      <Text style={styles.checklistTexto}>
-        Transferencias, USD y Gastos son opcionales
-      </Text>
-    </View>
+            <View style={styles.checklistItem}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={20}
+                color={Colors.textSecondary}
+              />
+              <Text style={styles.checklistTexto}>
+                Transferencias, USD y Gastos son opcionales
+              </Text>
+            </View>
 
-    <TouchableOpacity
-      style={styles.botonIrInventario}
-      onPress={() => setSeccionActiva('inventario')}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.botonIrInventarioTexto}>
-        Ir a Inventario Final
-      </Text>
-    </TouchableOpacity>
-  </View>
-)}
+            <TouchableOpacity
+              style={styles.botonIrInventario}
+              onPress={() => setSeccionActiva('inventario')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.botonIrInventarioTexto}>
+                Ir a Inventario Final
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo={getTituloEliminar()}
+        mensaje={getMensajeEliminar()}
+        onConfirmar={handleConfirmarEliminar}
+        onCancelar={() => setPendienteEliminar(null)}
+      />
     </SafeAreaView>
   );
 }

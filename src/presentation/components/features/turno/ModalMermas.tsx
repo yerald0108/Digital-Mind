@@ -9,6 +9,7 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { Divider } from '../../ui/Divider';
 import { SelectorProducto } from '../../ui/SelectorProducto';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Producto } from '../../../../domain/entities/Producto';
 import { Merma, MermaInput, TipoMerma } from '../../../../domain/entities/Merma';
 import { mermaSchema } from '../../../../utils/validators';
@@ -49,6 +50,8 @@ export function ModalMermas({
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoMerma>('roto');
+
+  const [pendienteEliminar, setPendienteEliminar] = useState<{ id: number; nombre: string } | null>(null);
 
   const { control, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } =
     useForm<FormData>({
@@ -92,10 +95,7 @@ export function ModalMermas({
   };
 
   const confirmarEliminar = (id: number, nombre: string) => {
-    Alert.alert('Eliminar merma', `¿Eliminar la merma de "${nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(id) },
-    ]);
+    setPendienteEliminar({ id, nombre });
   };
 
   return (
@@ -215,6 +215,18 @@ export function ModalMermas({
           <Text style={[styles.vacioTexto, { color: C.textDisabled }]}>Sin mermas registradas</Text>
         </View>
       )}
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo="Eliminar merma"
+        mensaje={`¿Eliminar la merma de "${pendienteEliminar?.nombre}"?`}  
+        onConfirmar={() => {
+          if (pendienteEliminar) onEliminar(pendienteEliminar.id);
+          setPendienteEliminar(null);
+        }}
+        onCancelar={() => setPendienteEliminar(null)}
+      />
     </Modal>
   );
 }

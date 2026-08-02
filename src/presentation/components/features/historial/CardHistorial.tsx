@@ -1,5 +1,6 @@
 // src/presentation/components/features/historial/CardHistorial.tsx
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Share, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HistorialTurno } from '../../../../domain/entities/HistorialTurno';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -8,13 +9,38 @@ import { useTheme } from '../../../../presentation/hooks/useTheme';
 
 interface CardHistorialProps {
   registro: HistorialTurno;
+  index: number;
   onVer: (registro: HistorialTurno) => void;
   onEliminar: (id: number) => void;
 }
 
-export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProps) {
+export function CardHistorial({ registro, index, onVer, onEliminar }: CardHistorialProps) {
   const { C: Colors } = useTheme();
   const styles = crearEstilos(Colors);
+
+  // ── Animación de entrada: fade + slide desde abajo con stagger por índice ──
+  const opacidad = useRef(new Animated.Value(0)).current;
+  const traslacion = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    // Máximo 400ms de retardo para que las cards lejanas no tarden demasiado
+    const retardo = Math.min(index * 60, 400);
+    Animated.parallel([
+      Animated.timing(opacidad, {
+        toValue: 1,
+        duration: 350,
+        delay: retardo,
+        useNativeDriver: true,
+      }),
+      Animated.timing(traslacion, {
+        toValue: 0,
+        duration: 350,
+        delay: retardo,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []); // Solo al montar — no se repite en re-renders
+
   const colorEstado =
     registro.estado_cuadre === 'sobrante' ? Colors.accentWarning
     : registro.estado_cuadre === 'faltante' ? Colors.accentDanger
@@ -125,61 +151,68 @@ export function CardHistorial({ registro, onVer, onEliminar }: CardHistorialProp
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={() => onVer(registro)} activeOpacity={0.8}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.fecha}>{formatFecha(registro.fecha_apertura)}</Text>
-          <View style={styles.duracionBadge}>
-            <MaterialCommunityIcons name="calendar-range" size={12} color={Colors.textSecondary} />
-            <Text style={styles.duracionTexto}>{formatDias(registro.dias_duracion)}</Text>
+    <Animated.View
+      style={{
+        opacity: opacidad,
+        transform: [{ translateY: traslacion }],
+      }}
+    >
+      <TouchableOpacity style={styles.card} onPress={() => onVer(registro)} activeOpacity={0.8}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.fecha}>{formatFecha(registro.fecha_apertura)}</Text>
+            <View style={styles.duracionBadge}>
+              <MaterialCommunityIcons name="calendar-range" size={12} color={Colors.textSecondary} />
+              <Text style={styles.duracionTexto}>{formatDias(registro.dias_duracion)}</Text>
+            </View>
+          </View>
+          <View style={[styles.estadoBadge, { borderColor: colorEstado }]}>
+            <MaterialCommunityIcons name={iconoEstado} size={14} color={colorEstado} />
+            <Text style={[styles.estadoTexto, { color: colorEstado }]}>{labelEstado}</Text>
           </View>
         </View>
-        <View style={[styles.estadoBadge, { borderColor: colorEstado }]}>
-          <MaterialCommunityIcons name={iconoEstado} size={14} color={colorEstado} />
-          <Text style={[styles.estadoTexto, { color: colorEstado }]}>{labelEstado}</Text>
-        </View>
-      </View>
 
-      {/* Datos principales */}
-      <View style={styles.datos}>
-        <DatoItem label="Ventas" valor={formatMoneda(registro.total_ventas)} icono="cash-register" color={Colors.accent} />
-        <DatoItem label="Real en caja" valor={formatMoneda(registro.total_efectivo_real)} icono="cash" color={Colors.accentSuccess} />
-        <DatoItem
-          label="Ganancia neta"
-          valor={formatMoneda(registro.ganancia_neta)}
-          icono="trending-up"
-          color={registro.ganancia_neta >= 0 ? Colors.accentSuccess : Colors.accentDanger}
-        />
-      </View>
-
-      {/* Diferencia */}
-      {registro.estado_cuadre !== 'sin_cuadre' && registro.estado_cuadre !== 'exacto' && (
-        <View style={[styles.diferenciaBadge, { backgroundColor: `${colorEstado}15` }]}>
-          <Text style={[styles.diferenciaTexto, { color: colorEstado }]}>
-            {registro.estado_cuadre === 'sobrante' ? 'Sobran' : 'Faltan'}{' '}
-            {formatMoneda(Math.abs(registro.diferencia))}
-          </Text>
+        {/* Datos principales */}
+        <View style={styles.datos}>
+          <DatoItem label="Ventas" valor={formatMoneda(registro.total_ventas)} icono="cash-register" color={Colors.accent} />
+          <DatoItem label="Real en caja" valor={formatMoneda(registro.total_efectivo_real)} icono="cash" color={Colors.accentSuccess} />
+          <DatoItem
+            label="Ganancia neta"
+            valor={formatMoneda(registro.ganancia_neta)}
+            icono="trending-up"
+            color={registro.ganancia_neta >= 0 ? Colors.accentSuccess : Colors.accentDanger}
+          />
         </View>
-      )}
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerFecha}>Cerrado: {formatFechaHora(registro.fecha_cierre)}</Text>
-        <View style={styles.footerAcciones}>
-          <TouchableOpacity onPress={handleCompartir} style={styles.botonCompartir}>
-            <MaterialCommunityIcons name="whatsapp" size={15} color="#25D366" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => onVer(registro)} style={styles.botonVer}>
-            <MaterialCommunityIcons name="eye-outline" size={16} color={Colors.accent} />
-            <Text style={styles.botonVerTexto}>Ver detalle</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={confirmarEliminar} style={styles.botonEliminar}>
-            <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
-          </TouchableOpacity>
+        {/* Diferencia */}
+        {registro.estado_cuadre !== 'sin_cuadre' && registro.estado_cuadre !== 'exacto' && (
+          <View style={[styles.diferenciaBadge, { backgroundColor: `${colorEstado}15` }]}>
+            <Text style={[styles.diferenciaTexto, { color: colorEstado }]}>
+              {registro.estado_cuadre === 'sobrante' ? 'Sobran' : 'Faltan'}{' '}
+              {formatMoneda(Math.abs(registro.diferencia))}
+            </Text>
+          </View>
+        )}
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerFecha}>Cerrado: {formatFechaHora(registro.fecha_cierre)}</Text>
+          <View style={styles.footerAcciones}>
+            <TouchableOpacity onPress={handleCompartir} style={styles.botonCompartir}>
+              <MaterialCommunityIcons name="whatsapp" size={15} color="#25D366" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onVer(registro)} style={styles.botonVer}>
+              <MaterialCommunityIcons name="eye-outline" size={16} color={Colors.accent} />
+              <Text style={styles.botonVerTexto}>Ver detalle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={confirmarEliminar} style={styles.botonEliminar}>
+              <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 

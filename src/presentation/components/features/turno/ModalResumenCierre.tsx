@@ -105,7 +105,14 @@ export function ModalResumenCierre({
     }
   }, [visible, overlayOpacity, sheetTranslateY]);
 
-  // Cargar datos de BD al abrir (inventario final y caja — no están en index.tsx)
+  // ── Ref para contadores: se actualiza sin gatillar el efecto de carga ──
+  const contadoresRef = useRef({ totalEntradas, totalSalidas, totalMermas, totalCambios });
+
+  useEffect(() => {
+    contadoresRef.current = { totalEntradas, totalSalidas, totalMermas, totalCambios };
+  }, [totalEntradas, totalSalidas, totalMermas, totalCambios]);
+
+  // ── Cargar datos de BD al abrir (inventario final y caja — no están en index.tsx) ──
   useEffect(() => {
     if (!visible) return;
 
@@ -114,71 +121,95 @@ export function ModalResumenCierre({
     setResumen(null);
 
     async function cargar() {
-      const [
-        inventarioInicial,
-        inventarioFinal,
-        entradas,
-        salidasFamiliares,
-        cambiosPrecio,
-        mermas,
-        transferencias,
-        gastos,
-        cajaPorDia,
-        registrosUSD,
-      ] = await Promise.all([
-        TurnoRepository.getInventario(turno.id, 'inicial'),
-        TurnoRepository.getInventario(turno.id, 'final'),
-        MovimientoRepository.getEntradas(turno.id),
-        MovimientoRepository.getSalidasFamiliares(turno.id),
-        MovimientoRepository.getCambiosPrecio(turno.id),
-        MovimientoRepository.getMermas(turno.id),
-        MovimientoRepository.getTransferencias(turno.id),
-        MovimientoRepository.getGastos(turno.id),
-        MovimientoRepository.getCajaPorDia(turno.id),
-        MovimientoRepository.getRegistrosUSD(turno.id),
-      ]);
+      try {
+        const { totalEntradas, totalSalidas, totalMermas, totalCambios } = contadoresRef.current;
 
-      if (cancelado) return;
+        const [
+          inventarioInicial,
+          inventarioFinal,
+          entradas,
+          salidasFamiliares,
+          cambiosPrecio,
+          mermas,
+          transferencias,
+          gastos,
+          cajaPorDia,
+          registrosUSD,
+        ] = await Promise.all([
+          TurnoRepository.getInventario(turno.id, 'inicial'),
+          TurnoRepository.getInventario(turno.id, 'final'),
+          MovimientoRepository.getEntradas(turno.id),
+          MovimientoRepository.getSalidasFamiliares(turno.id),
+          MovimientoRepository.getCambiosPrecio(turno.id),
+          MovimientoRepository.getMermas(turno.id),
+          MovimientoRepository.getTransferencias(turno.id),
+          MovimientoRepository.getGastos(turno.id),
+          MovimientoRepository.getCajaPorDia(turno.id),
+          MovimientoRepository.getRegistrosUSD(turno.id),
+        ]);
 
-      const inventarioFinalCompleto = inventarioFinal.length > 0;
-      const diasConCaja = new Set(cajaPorDia.map((c) => c.dia_numero)).size;
-      const cajaCompleta = diasConCaja >= turno.dias_duracion;
-      const cuadreCalculado = inventarioFinalCompleto && cajaCompleta;
+        if (cancelado) return;
 
-      // Calcular resultado financiero real si hay inventario final
-      let diferencia: number | null = null;
-      let estadoCuadre: 'exacto' | 'sobrante' | 'faltante' | null = null;
-      let totalVentas: number | null = null;
+        const inventarioFinalCompleto = inventarioFinal.length > 0;
+        const diasConCaja = new Set(cajaPorDia.map((c) => c.dia_numero)).size;
+        const cajaCompleta = diasConCaja >= turno.dias_duracion;
+        const cuadreCalculado = inventarioFinalCompleto && cajaCompleta;
 
-      if (inventarioFinalCompleto) {
-        const resultado = calcularCuadre({
-          inventarioInicial, inventarioFinal, entradas,
-          salidasFamiliares, cambiosPrecio, mermas,
-          transferencias, gastos, cajaPorDia, registrosUSD,
+        // Calcular resultado financiero real si hay inventario final
+        let diferencia: number | null = null;
+        let estadoCuadre: 'exacto' | 'sobrante' | 'faltante' | null = null;
+        let totalVentas: number | null = null;
+
+        if (inventarioFinalCompleto) {
+          const resultado = calcularCuadre({
+            inventarioInicial, inventarioFinal, entradas,
+            salidasFamiliares, cambiosPrecio, mermas,
+            transferencias, gastos, cajaPorDia, registrosUSD,
+          });
+          diferencia = resultado.diferencia;
+          estadoCuadre = resultado.estado;
+          totalVentas = resultado.total_ventas_esperado;
+        }
+
+        setResumen({
+          diasDuracion: turno.dias_duracion,
+          entradas: totalEntradas,
+          salidas: totalSalidas,
+          mermas: totalMermas,
+          cambiosPrecio: totalCambios,
+          inventarioFinalCompleto,
+          cajaCompleta,
+          cuadreCalculado,
+          diferencia,
+          estadoCuadre,
+          totalVentas,
         });
-        diferencia = resultado.diferencia;
-        estadoCuadre = resultado.estado;
-        totalVentas = resultado.total_ventas_esperado;
+      } catch (e) {
+        console.error('[ModalResumenCierre] cargar:', e);
+        if (!cancelado) {
+          const { totalEntradas, totalSalidas, totalMermas, totalCambios } = contadoresRef.current;
+          setResumen({
+            diasDuracion: turno.dias_duracion,
+            entradas: totalEntradas,
+            salidas: totalSalidas,
+            mermas: totalMermas,
+            cambiosPrecio: totalCambios,
+            inventarioFinalCompleto: false,
+            cajaCompleta: false,
+            cuadreCalculado: false,
+            diferencia: null,
+            estadoCuadre: null,
+            totalVentas: null,
+          });
+        }
+      } finally {
+        if (!cancelado) setCargando(false);
       }
-
-      setResumen({
-        diasDuracion: turno.dias_duracion,
-        entradas: totalEntradas,
-        salidas: totalSalidas,
-        mermas: totalMermas,
-        cambiosPrecio: totalCambios,
-        inventarioFinalCompleto,
-        cajaCompleta,
-        cuadreCalculado,
-        diferencia,
-        estadoCuadre,
-        totalVentas,
-      });
     }
 
     cargar();
     return () => { cancelado = true; };
-  }, [visible, turno.id, turno.dias_duracion, totalEntradas, totalSalidas, totalMermas, totalCambios]);
+  }, [visible, turno.id, turno.dias_duracion]); // ← solo deps que NO cambian en cada render
 
   // ── Lógica del semáforo ───────────────────────────────────
   const hayAlgosPendientesCriticos = resumen

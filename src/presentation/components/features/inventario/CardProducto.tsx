@@ -1,7 +1,9 @@
 // src/presentation/components/features/inventario/CardProducto.tsx
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Producto } from '../../../../domain/entities/Producto';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
 import { useTheme } from '../../../hooks/useTheme';
@@ -23,94 +25,94 @@ export function CardProducto({
   const styles = crearEstilos(Colors);
   const margen = producto.precio_venta - producto.precio_costo;
   const esPositivo = margen >= 0;
-
-  const confirmarEliminar = () => {
-    Alert.alert(
-      'Eliminar producto',
-      `¿Seguro que deseas eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => onEliminar(producto.id),
-        },
-      ]
-    );
-  };
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   return (
-    <View style={styles.container}>
-      {/* Número de orden */}
-      <View style={styles.orden}>
-        <Text style={styles.ordenTexto}>{index + 1}</Text>
-      </View>
+    <>
+      <View style={styles.container}>
+        {/* Número de orden */}
+        <View style={styles.orden}>
+          <Text style={styles.ordenTexto}>{index + 1}</Text>
+        </View>
 
-      {/* Info del producto */}
-      <View style={styles.info}>
-        <Text style={styles.nombre} numberOfLines={1}>
-          {producto.nombre}
-        </Text>
-        <View style={styles.precios}>
-          {/* Precio costo */}
-          <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Costo</Text>
-            <Text style={styles.precioCosto}>
-              {formatMoneda(producto.precio_costo)}
-            </Text>
-          </View>
-          {/* Separador */}
-          <View style={styles.separador} />
-          {/* Precio venta */}
-          <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Venta</Text>
-            <Text style={styles.precioVenta}>
-              {formatMoneda(producto.precio_venta)}
-            </Text>
-          </View>
-          {/* Separador */}
-          <View style={styles.separador} />
-          {/* Margen */}
-          <View style={styles.precioItem}>
-            <Text style={styles.precioLabel}>Margen</Text>
-            <Text
-              style={[
-                styles.margen,
-                { color: esPositivo ? Colors.accentSuccess : Colors.accentDanger },
-              ]}
-            >
-              {esPositivo ? '+' : ''}{margen.toFixed(2)}
-            </Text>
+        {/* Info del producto */}
+        <View style={styles.info}>
+          <Text style={styles.nombre} numberOfLines={1}>
+            {producto.nombre}
+          </Text>
+          <View style={styles.precios}>
+            {/* Precio costo */}
+            <View style={styles.precioItem}>
+              <Text style={styles.precioLabel}>Costo</Text>
+              <Text style={styles.precioCosto}>
+                {formatMoneda(producto.precio_costo)}
+              </Text>
+            </View>
+            {/* Separador */}
+            <View style={styles.separador} />
+            {/* Precio venta */}
+            <View style={styles.precioItem}>
+              <Text style={styles.precioLabel}>Venta</Text>
+              <Text style={styles.precioVenta}>
+                {formatMoneda(producto.precio_venta)}
+              </Text>
+            </View>
+            {/* Separador */}
+            <View style={styles.separador} />
+            {/* Margen */}
+            <View style={styles.precioItem}>
+              <Text style={styles.precioLabel}>Margen</Text>
+              <Text
+                style={[
+                  styles.margen,
+                  { color: esPositivo ? Colors.accentSuccess : Colors.accentDanger },
+                ]}
+              >
+                {esPositivo ? '+' : ''}{margen.toFixed(2)}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Acciones */}
-      <View style={styles.acciones}>
-        <TouchableOpacity
-          style={styles.botonAccion}
-          onPress={() => onEditar(producto)}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="pencil-outline"
-            size={18}
-            color={Colors.accent}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.botonAccion, styles.botonEliminar]}
-          onPress={confirmarEliminar}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="trash-can-outline"
-            size={18}
-            color={Colors.accentDanger}
-          />
-        </TouchableOpacity>
+        {/* Acciones */}
+        <View style={styles.acciones}>
+          <TouchableOpacity
+            style={styles.botonAccion}
+            onPress={() => onEditar(producto)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={18}
+              color={Colors.accent}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.botonAccion, styles.botonEliminar]}
+            onPress={() => setConfirmVisible(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="trash-can-outline"
+              size={18}
+              color={Colors.accentDanger}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+      
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={confirmVisible}
+        titulo="Eliminar producto"
+        mensaje={`¿Seguro que deseas eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`}
+        onConfirmar={() => {
+          setConfirmVisible(false);
+          onEliminar(producto.id);
+        }}
+        onCancelar={() => setConfirmVisible(false)}
+      />
+    </>
   );
 }
 

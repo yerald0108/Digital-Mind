@@ -5,13 +5,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   PanResponder,
   Animated,
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Producto } from '../../../../domain/entities/Producto';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { useTheme } from '../../../../presentation/hooks/useTheme';
 import { Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatMoneda } from '../../../../utils/formatters';
@@ -50,104 +50,104 @@ const ProductoItem = memo(function ProductoItem({
   C,
 }: ItemProps) {
   const margen = item.precio_venta - item.precio_costo;
-
-  const confirmarEliminar = () => {
-    Alert.alert(
-      'Eliminar producto',
-      `¿Seguro que deseas eliminar "${item.nombre}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => onEliminar(item.id),
-        },
-      ]
-    );
-  };
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        { backgroundColor: C.bgSurface, borderColor: C.border },
-        isDragging && { backgroundColor: C.bgElevated, borderColor: C.accent },
-        isDragging && { transform: [{ translateY: dragY }], zIndex: 999 },
-      ]}
-    >
-      {/* Handle drag */}
-      <View {...panHandlers} style={styles.handle}>
-        <MaterialCommunityIcons
-          name="drag-vertical"
-          size={22}
-          color={isDragging ? C.accent : C.textDisabled}
-        />
-      </View>
-
-      {/* Número orden */}
-      <View style={[styles.orden, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
-        <Text style={[styles.ordenTexto, { color: C.textSecondary }]}>{index + 1}</Text>
-      </View>
-
-      {/* Info */}
-      <View style={styles.info}>
-        <View style={styles.nombreRow}>
-          <Text style={[styles.nombre, { color: C.textPrimary }]} numberOfLines={1}>
-            {item.nombre}
-          </Text>
+    <>
+      <Animated.View
+        style={[
+          styles.card,
+          { backgroundColor: C.bgSurface, borderColor: C.border },
+          isDragging && { backgroundColor: C.bgElevated, borderColor: C.accent },
+          isDragging && { transform: [{ translateY: dragY }], zIndex: 999 },
+        ]}
+      >
+        {/* Handle drag */}
+        <View {...panHandlers} style={styles.handle}>
+          <MaterialCommunityIcons
+            name="drag-vertical"
+            size={22}
+            color={isDragging ? C.accent : C.textDisabled}
+          />
         </View>
-        <View style={styles.precios}>
-          <View style={styles.precioItem}>
-            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Costo</Text>
-            <Text style={[styles.precioCosto, { color: C.textSecondary }]}>{formatMoneda(item.precio_costo)}</Text>
-          </View>
-          <View style={[styles.separador, { backgroundColor: C.border }]} />
-          <View style={styles.precioItem}>
-            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Venta</Text>
-            <Text style={[styles.precioVenta, { color: C.accent }]}>{formatMoneda(item.precio_venta)}</Text>
-          </View>
-          <View style={[styles.separador, { backgroundColor: C.border }]} />
-          <View style={styles.precioItem}>
-            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Margen</Text>
-            <Text
-              style={[
-                styles.margen,
-                { color: margen >= 0 ? C.accentSuccess : C.accentDanger },
-              ]}
-            >
-              {margen >= 0 ? '+' : ''}{margen.toFixed(2)}
+
+        {/* Número orden */}
+        <View style={[styles.orden, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
+          <Text style={[styles.ordenTexto, { color: C.textSecondary }]}>{index + 1}</Text>
+        </View>
+
+        {/* Info */}
+        <View style={styles.info}>
+          <View style={styles.nombreRow}>
+            <Text style={[styles.nombre, { color: C.textPrimary }]} numberOfLines={1}>
+              {item.nombre}
             </Text>
           </View>
-          <View style={[styles.separador, { backgroundColor: C.border }]} />
-          <View style={styles.precioItem}>
-            <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Cantidad</Text>
-            <Text style={[styles.cantidadTexto, { color: C.accent }]}>{item.cantidad} uds</Text>
+          <View style={styles.precios}>
+            <View style={styles.precioItem}>
+              <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Costo</Text>
+              <Text style={[styles.precioCosto, { color: C.textSecondary }]}>{formatMoneda(item.precio_costo)}</Text>
+            </View>
+            <View style={[styles.separador, { backgroundColor: C.border }]} />
+            <View style={styles.precioItem}>
+              <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Venta</Text>
+              <Text style={[styles.precioVenta, { color: C.accent }]}>{formatMoneda(item.precio_venta)}</Text>
+            </View>
+            <View style={[styles.separador, { backgroundColor: C.border }]} />
+            <View style={styles.precioItem}>
+              <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Margen</Text>
+              <Text
+                style={[
+                  styles.margen,
+                  { color: margen >= 0 ? C.accentSuccess : C.accentDanger },
+                ]}
+              >
+                {margen >= 0 ? '+' : ''}{margen.toFixed(2)}
+              </Text>
+            </View>
+            <View style={[styles.separador, { backgroundColor: C.border }]} />
+            <View style={styles.precioItem}>
+              <Text style={[styles.precioLabel, { color: C.textSecondary }]}>Cantidad</Text>
+              <Text style={[styles.cantidadTexto, { color: C.accent }]}>{item.cantidad} uds</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Acciones */}
-      <View style={styles.acciones}>
-        <TouchableOpacity
-          style={[styles.botonAccion, { backgroundColor: C.bgElevated, borderColor: C.border }]}
-          onPress={() => onEditar(item)}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="pencil-outline" size={16} color={C.accent} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.botonAccion, styles.botonEliminar]}
-          onPress={confirmarEliminar}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="trash-can-outline"
-            size={16}
-            color={C.accentDanger}
-          />
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
+        {/* Acciones */}
+        <View style={styles.acciones}>
+          <TouchableOpacity
+            style={[styles.botonAccion, { backgroundColor: C.bgElevated, borderColor: C.border }]}
+            onPress={() => onEditar(item)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="pencil-outline" size={16} color={C.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.botonAccion, styles.botonEliminar]}
+            onPress={() => setConfirmVisible(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="trash-can-outline"
+              size={16}
+              color={C.accentDanger}
+            />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+      
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={confirmVisible}
+        titulo="Eliminar producto"
+        mensaje={`¿Seguro que deseas eliminar "${item.nombre}"?`}
+        onConfirmar={() => {
+          setConfirmVisible(false);
+          onEliminar(item.id);
+        }}
+        onCancelar={() => setConfirmVisible(false)}
+      />
+    </>
   );
 });
 

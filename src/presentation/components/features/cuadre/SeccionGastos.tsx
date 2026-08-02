@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Gasto, GastoInput } from '../../../../domain/entities/Gasto';
 import { gastoSchema } from '../../../../utils/validators';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -47,6 +48,8 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
     reset();
     setMostrarForm(false);
   };
+
+  const [pendienteEliminar, setPendienteEliminar] = useState<number | null>(null);
 
   const totalGastos = gastos.reduce((acc, g) => acc + g.monto, 0);
 
@@ -135,12 +138,7 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
             </View>
           </View>
           <TouchableOpacity
-            onPress={() =>
-              Alert.alert('Eliminar', '¿Eliminar este gasto?', [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(g.id) },
-              ])
-            }
+            onPress={() => setPendienteEliminar(g.id)}
             style={styles.botonEliminar}
           >
             <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
@@ -156,6 +154,18 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
         <MaterialCommunityIcons name="plus" size={16} color={Colors.accent} />
         <Text style={styles.botonAgregarTexto}>Agregar gasto</Text>
       </TouchableOpacity>
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo="Eliminar gasto" 
+        mensaje="¿Estás seguro? Esta acción no se puede deshacer."
+        onConfirmar={() => {
+          if (pendienteEliminar !== null) onEliminar(pendienteEliminar);
+          setPendienteEliminar(null);
+        }}
+        onCancelar={() => setPendienteEliminar(null)}
+      />
     </View>
   );
 }

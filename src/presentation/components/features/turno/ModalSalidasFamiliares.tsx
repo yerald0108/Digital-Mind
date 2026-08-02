@@ -9,6 +9,7 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { Divider } from '../../ui/Divider';
 import { SelectorProducto } from '../../ui/SelectorProducto';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Producto } from '../../../../domain/entities/Producto';
 import { SalidaFamiliar, SalidaFamiliarInput } from '../../../../domain/entities/SalidaFamiliar';
 import { salidaFamiliarSchema } from '../../../../utils/validators';
@@ -39,6 +40,8 @@ export function ModalSalidasFamiliares({
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+
+  const [pendienteEliminar, setPendienteEliminar] = useState<{ id: number; nombre: string } | null>(null);
 
   const { control, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } =
     useForm<FormData>({
@@ -81,10 +84,7 @@ export function ModalSalidasFamiliares({
   };
 
   const confirmarEliminar = (id: number, nombre: string) => {
-    Alert.alert('Eliminar salida', `¿Eliminar la salida de "${nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(id) },
-    ]);
+    setPendienteEliminar({ id, nombre });
   };
 
   return (
@@ -182,6 +182,18 @@ export function ModalSalidasFamiliares({
           <Text style={styles.vacioTexto}>Sin salidas familiares registradas</Text>
         </View>
       )}
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo="Eliminar salida familiar"
+        mensaje={`¿Eliminar la salida familiar de "${pendienteEliminar?.nombre}"?`}  
+        onConfirmar={() => {
+          if (pendienteEliminar) onEliminar(pendienteEliminar.id);
+          setPendienteEliminar(null);
+        }}
+        onCancelar={() => setPendienteEliminar(null)}
+      />
     </Modal>
   );
 }

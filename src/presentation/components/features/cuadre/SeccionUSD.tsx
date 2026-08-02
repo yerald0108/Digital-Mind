@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { RegistroUSD, RegistroUSDInput } from '../../../../domain/entities/RegistroUSD';
 import { usdSchema } from '../../../../utils/validators';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -46,6 +47,8 @@ export function SeccionUSD({ turnoId, registros, onCrear, onEliminar }: SeccionU
     reset();
     setMostrarForm(false);
   };
+
+  const [pendienteEliminar, setPendienteEliminar] = useState<number | null>(null);
 
   const totalCUP = registros.reduce((acc, r) => acc + r.equivalente_cup, 0);
   const totalUSD = registros.reduce((acc, r) => acc + r.cantidad_usd, 0);
@@ -125,10 +128,7 @@ export function SeccionUSD({ turnoId, registros, onCrear, onEliminar }: SeccionU
             </View>
           </View>
           <TouchableOpacity
-            onPress={() => Alert.alert('Eliminar', '¿Eliminar este registro de USD?', [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(r.id) },
-            ])}
+            onPress={() => setPendienteEliminar(r.id)}
             style={styles.botonEliminar}>
             <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
           </TouchableOpacity>
@@ -144,6 +144,18 @@ export function SeccionUSD({ turnoId, registros, onCrear, onEliminar }: SeccionU
         <MaterialCommunityIcons name="plus" size={16} color={Colors.accent} />
         <Text style={styles.botonAgregarTexto}>Agregar registro USD</Text>
       </TouchableOpacity>
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo="Eliminar transferencia"   // cambiar según sección
+        mensaje="¿Estás seguro? Esta acción no se puede deshacer."
+        onConfirmar={() => {
+          if (pendienteEliminar !== null) onEliminar(pendienteEliminar);
+          setPendienteEliminar(null);
+        }}
+        onCancelar={() => setPendienteEliminar(null)}
+      />
     </View>
   );
 }

@@ -10,6 +10,7 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { Divider } from '../../ui/Divider';
 import { SelectorProducto } from '../../ui/SelectorProducto';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Producto, ProductoInput } from '../../../../domain/entities/Producto';
 import { Entrada, EntradaInput } from '../../../../domain/entities/Entrada';
 import { entradaSchema, productoSchema } from '../../../../utils/validators';
@@ -54,6 +55,8 @@ export function ModalEntradas({
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   // Modo: 'existente' = producto ya en inventario | 'nuevo' = producto que no existe
   const [modoProducto, setModoProducto] = useState<'existente' | 'nuevo'>('existente');
+
+  const [pendienteEliminar, setPendienteEliminar] = useState<{ id: number; nombre: string } | null>(null);
 
   // ── Formulario para producto EXISTENTE ───────────────────────
   const {
@@ -147,10 +150,7 @@ export function ModalEntradas({
 
   // ── Eliminar ─────────────────────────────────────────────────
   const confirmarEliminar = (id: number, nombre: string) => {
-    Alert.alert('Eliminar entrada', `¿Eliminar la entrada de "${nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(id) },
-    ]);
+    setPendienteEliminar({ id, nombre });
   };
 
   // ── Render ────────────────────────────────────────────────────
@@ -457,6 +457,18 @@ export function ModalEntradas({
           <Text style={styles.vacioTexto}>Sin entradas registradas</Text>
         </View>
       )}
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo="Eliminar entrada"
+        mensaje={`¿Eliminar la entrada de "${pendienteEliminar?.nombre}"?`}  
+        onConfirmar={() => {
+          if (pendienteEliminar) onEliminar(pendienteEliminar.id);
+          setPendienteEliminar(null);
+        }}
+        onCancelar={() => setPendienteEliminar(null)}
+      />
     </Modal>
   );
 }

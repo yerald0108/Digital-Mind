@@ -7,7 +7,6 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,6 +23,7 @@ import {
   contarFiltrosActivos,
 } from '../../src/presentation/components/features/historial/FiltrosHistorial';
 import { HistorialTurno } from '../../src/domain/entities/HistorialTurno';
+import { ModalConfirmacion } from '../../src/presentation/components/ui/ModalConfirmacion';
 import { getColors, Typography, Spacing, Radius } from '../../src/constants/theme';
 import { formatMoneda } from '../../src/utils/formatters';
 import { useTheme } from '../../src/presentation/hooks/useTheme';
@@ -54,27 +54,11 @@ export default function HistorialScreen() {
   const totalVentas = historialFiltrado.reduce((acc, h) => acc + h.total_ventas, 0);
   const totalGanancias = historialFiltrado.reduce((acc, h) => acc + h.ganancia_neta, 0);
 
+  const [pendienteEliminar, setPendienteEliminar] = useState<number | null>(null);
+
   // ── Eliminar ─────────────────────────────────────────────────
   const handleEliminar = (id: number) => {
-    Alert.alert(
-      'Eliminar registro',
-      '¿Estás seguro? Este registro no se puede recuperar.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await eliminar(id);
-              toast.exito('Registro eliminado', 'El registro fue eliminado del historial');
-            } catch {
-              toast.error('Error', 'No se pudo eliminar el registro');
-            }
-          },
-        },
-      ]
-    );
+    setPendienteEliminar(id);
   };
 
   return (
@@ -190,9 +174,10 @@ export default function HistorialScreen() {
         <FlatList
           data={historialFiltrado}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <CardHistorial
               registro={item}
+              index={index}
               onVer={setRegistroSeleccionado}
               onEliminar={handleEliminar}
             />
@@ -207,6 +192,25 @@ export default function HistorialScreen() {
         visible={registroSeleccionado !== null}
         onClose={() => setRegistroSeleccionado(null)}
         registro={registroSeleccionado}
+      />
+
+      {/* ── Modal de Confirmación ── */}
+      <ModalConfirmacion
+        visible={pendienteEliminar !== null}
+        titulo="Eliminar registro"
+        mensaje="¿Estás seguro? Este registro no se puede recuperar."
+        onConfirmar={async () => {
+          if (pendienteEliminar === null) return;
+          try {
+            await eliminar(pendienteEliminar);
+            toast.exito('Registro eliminado', 'El registro fue eliminado del historial');
+          } catch {
+            toast.error('Error', 'No se pudo eliminar el registro');
+          } finally {
+            setPendienteEliminar(null);
+          }
+        }}
+        onCancelar={() => setPendienteEliminar(null)}
       />
     </SafeAreaView>
   );

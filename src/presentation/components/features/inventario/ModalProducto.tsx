@@ -110,7 +110,7 @@ export function ModalProducto({
   };
 
   const irSiguiente = () => {
-    if (indiceActual < productos.length - 1) {
+    if (indiceActual < productos.length - 1 && !isSubmitting) {
       setIndiceActual(indiceActual + 1);
       setGuardado(false);
     }
@@ -127,9 +127,12 @@ export function ModalProducto({
       {esCarrusel && productos.length > 1 && (
         <View style={[styles.carrusel, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
           <TouchableOpacity
-            style={[styles.carruselBtn, indiceActual === 0 && styles.carruselBtnDisabled]}
+            style={[
+              styles.carruselBtn,
+              (indiceActual === 0 || isSubmitting) && styles.carruselBtnDisabled,
+            ]}
             onPress={irAnterior}
-            disabled={indiceActual === 0}
+            disabled={indiceActual === 0 || isSubmitting} 
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons
@@ -172,10 +175,10 @@ export function ModalProducto({
           <TouchableOpacity
             style={[
               styles.carruselBtn,
-              indiceActual === productos.length - 1 && styles.carruselBtnDisabled,
+              (indiceActual === productos.length - 1 || isSubmitting) && styles.carruselBtnDisabled,
             ]}
             onPress={irSiguiente}
-            disabled={indiceActual === productos.length - 1}
+            disabled={indiceActual === productos.length - 1 || isSubmitting}
             activeOpacity={0.7}
           >
             <Text style={[

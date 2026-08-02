@@ -14,7 +14,9 @@ import { useState, useEffect, useRef } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Turno } from '../../../../domain/entities/Turno';
 import { TurnoRepository } from '../../../../data/repositories/TurnoRepository';
+import { calcularCuadre } from '../../../../domain/usecases/calcularCuadre';
 import { MovimientoRepository } from '../../../../data/repositories/MovimientoRepository';
+import { formatMoneda } from '../../../../utils/formatters';
 import { getColors, Typography, Spacing, Radius, Shadows } from '../../../../constants/theme';
 import { formatDias, formatFechaHora } from '../../../../utils/formatters';
 import { useTheme } from '../../../hooks/useTheme';
@@ -30,6 +32,10 @@ interface ResumenTurno {
   inventarioFinalCompleto: boolean;
   cajaCompleta: boolean;
   cuadreCalculado: boolean;
+  //Resultado financiero real
+  diferencia: number | null;
+  estadoCuadre: 'exacto' | 'sobrante' | 'faltante' | null;
+  totalVentas: number | null;
 }
 
 interface ModalResumenCierreProps {
@@ -108,53 +114,66 @@ export function ModalResumenCierre({
     setResumen(null);
 
     async function cargar() {
-      try {
-        const [inventarioFinal, cajaPorDia] = await Promise.all([
-          TurnoRepository.getInventario(turno.id, 'final'),
-          MovimientoRepository.getCajaPorDia(turno.id),
-        ]);
+      const [
+        inventarioInicial,
+        inventarioFinal,
+        entradas,
+        salidasFamiliares,
+        cambiosPrecio,
+        mermas,
+        transferencias,
+        gastos,
+        cajaPorDia,
+        registrosUSD,
+      ] = await Promise.all([
+        TurnoRepository.getInventario(turno.id, 'inicial'),
+        TurnoRepository.getInventario(turno.id, 'final'),
+        MovimientoRepository.getEntradas(turno.id),
+        MovimientoRepository.getSalidasFamiliares(turno.id),
+        MovimientoRepository.getCambiosPrecio(turno.id),
+        MovimientoRepository.getMermas(turno.id),
+        MovimientoRepository.getTransferencias(turno.id),
+        MovimientoRepository.getGastos(turno.id),
+        MovimientoRepository.getCajaPorDia(turno.id),
+        MovimientoRepository.getRegistrosUSD(turno.id),
+      ]);
 
-        if (cancelado) return;
+      if (cancelado) return;
 
-        // Inventario final: completo si está guardado con al menos un producto
-        const inventarioFinalCompleto = inventarioFinal.length > 0;
+      const inventarioFinalCompleto = inventarioFinal.length > 0;
+      const diasConCaja = new Set(cajaPorDia.map((c) => c.dia_numero)).size;
+      const cajaCompleta = diasConCaja >= turno.dias_duracion;
+      const cuadreCalculado = inventarioFinalCompleto && cajaCompleta;
 
-        // Caja: completa si hay un registro por cada día de duración del turno
-        const diasConCaja = new Set(cajaPorDia.map((c) => c.dia_numero)).size;
-        const cajaCompleta = diasConCaja >= turno.dias_duracion;
+      // Calcular resultado financiero real si hay inventario final
+      let diferencia: number | null = null;
+      let estadoCuadre: 'exacto' | 'sobrante' | 'faltante' | null = null;
+      let totalVentas: number | null = null;
 
-        // Cuadre calculado: si hay inventario final guardado Y caja completa,
-        // el usuario tuvo la oportunidad de calcular
-        const cuadreCalculado = inventarioFinalCompleto && cajaCompleta;
-
-        setResumen({
-          diasDuracion: turno.dias_duracion,
-          entradas: totalEntradas,
-          salidas: totalSalidas,
-          mermas: totalMermas,
-          cambiosPrecio: totalCambios,
-          inventarioFinalCompleto,
-          cajaCompleta,
-          cuadreCalculado,
+      if (inventarioFinalCompleto) {
+        const resultado = calcularCuadre({
+          inventarioInicial, inventarioFinal, entradas,
+          salidasFamiliares, cambiosPrecio, mermas,
+          transferencias, gastos, cajaPorDia, registrosUSD,
         });
-      } catch (e) {
-        console.error('[ModalResumenCierre] cargar:', e);
-        // En caso de error, mostrar resumen parcial con lo que tenemos
-        if (!cancelado) {
-          setResumen({
-            diasDuracion: turno.dias_duracion,
-            entradas: totalEntradas,
-            salidas: totalSalidas,
-            mermas: totalMermas,
-            cambiosPrecio: totalCambios,
-            inventarioFinalCompleto: false,
-            cajaCompleta: false,
-            cuadreCalculado: false,
-          });
-        }
-      } finally {
-        if (!cancelado) setCargando(false);
+        diferencia = resultado.diferencia;
+        estadoCuadre = resultado.estado;
+        totalVentas = resultado.total_ventas_esperado;
       }
+
+      setResumen({
+        diasDuracion: turno.dias_duracion,
+        entradas: totalEntradas,
+        salidas: totalSalidas,
+        mermas: totalMermas,
+        cambiosPrecio: totalCambios,
+        inventarioFinalCompleto,
+        cajaCompleta,
+        cuadreCalculado,
+        diferencia,
+        estadoCuadre,
+        totalVentas,
+      });
     }
 
     cargar();
@@ -192,6 +211,7 @@ export function ModalResumenCierre({
           styles.sheet,
           { backgroundColor: Colors.bgSurface, borderColor: Colors.border },
           { transform: [{ translateY: sheetTranslateY }] },
+          { minHeight: 320 },
         ]}
       >
 
@@ -330,6 +350,79 @@ export function ModalResumenCierre({
                   Colors={Colors}
                 />
               </View>
+
+              {/* ── Sección: Resultado financiero ── */}
+              {resumen.diferencia !== null && resumen.estadoCuadre !== null && (
+                <>
+                  <Text style={[styles.seccionLabel, { color: Colors.textSecondary }]}>
+                    RESULTADO FINANCIERO
+                  </Text>
+                  <View style={[
+                    styles.resultadoCard,
+                    {
+                      backgroundColor:
+                        resumen.estadoCuadre === 'exacto'
+                          ? `${Colors.accentSuccess}12`
+                          : resumen.estadoCuadre === 'sobrante'
+                          ? `${Colors.accentWarning}12`
+                          : `${Colors.accentDanger}12`,
+                        borderColor:
+                        resumen.estadoCuadre === 'exacto'
+                          ? `${Colors.accentSuccess}40`
+                          : resumen.estadoCuadre === 'sobrante'
+                          ? `${Colors.accentWarning}40`
+                          : `${Colors.accentDanger}40`,
+                    },
+                  ]}>
+                    <MaterialCommunityIcons
+                      name={
+                        resumen.estadoCuadre === 'exacto' ? 'check-circle-outline'
+                        : resumen.estadoCuadre === 'sobrante' ? 'trending-up'
+                        : 'trending-down'
+                      }
+                      size={28}
+                      color={
+                        resumen.estadoCuadre === 'exacto' ? Colors.accentSuccess
+                        : resumen.estadoCuadre === 'sobrante' ? Colors.accentWarning
+                        : Colors.accentDanger
+                      }
+                    />
+                    <View style={styles.resultadoTextos}>
+                      <Text style={[
+                        styles.resultadoLabel,
+                        {
+                          color:
+                            resumen.estadoCuadre === 'exacto' ? Colors.accentSuccess
+                            : resumen.estadoCuadre === 'sobrante' ? Colors.accentWarning
+                            : Colors.accentDanger,
+                        },
+                      ]}>
+                        {resumen.estadoCuadre === 'exacto' ? 'Cuadre exacto'
+                        : resumen.estadoCuadre === 'sobrante' ? 'Sobrante'
+                        : 'Faltante'}
+                      </Text>
+                      <Text style={[
+                        styles.resultadoDiferencia,
+                        {
+                          color:
+                            resumen.estadoCuadre === 'exacto' ? Colors.accentSuccess
+                            : resumen.estadoCuadre === 'sobrante' ? Colors.accentWarning
+                            : Colors.accentDanger,
+                        },
+                      ]}>
+                        {resumen.estadoCuadre === 'exacto'
+                          ? 'Sin diferencia'
+                          : `${resumen.diferencia > 0 ? '+' : ''}${formatMoneda(resumen.diferencia)}`}
+                      </Text>
+                      {resumen.totalVentas !== null && (
+                        <Text style={[styles.resultadoSub, { color: Colors.textSecondary }]}>
+                          Ventas estimadas: {formatMoneda(resumen.totalVentas)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </>
+              )}
 
               {/* ── Aviso si hay pendientes críticos ── */}
               {hayAlgosPendientesCriticos && (
@@ -681,6 +774,31 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
     },
     botonDeshabilitado: {
       opacity: 0.6,
+    },
+    resultadoCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      padding: Spacing.md,
+    },
+    resultadoTextos: {
+      flex: 1,
+      gap: 2,
+    },
+    resultadoLabel: {
+      fontFamily: Typography.fontFamilyBold,
+      fontSize: Typography.size.md,
+    },
+    resultadoDiferencia: {
+      fontFamily: Typography.fontFamilyExtraBold,
+      fontSize: Typography.size.xl,
+    },
+    resultadoSub: {
+      fontFamily: Typography.fontFamily,
+      fontSize: Typography.size.xs,
+      marginTop: 2,
     },
   });
 }

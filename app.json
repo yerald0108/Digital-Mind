@@ -15,14 +15,58 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Digital/Mind Productos",
+            "CFBundleTypeRole": "Editor",
+            "LSItemContentTypes": ["public.json"],
+            "CFBundleTypeExtensions": ["dmind", "json"]
+          }
+        ],
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.yerald.digitalmind.productos",
+            "UTTypeDescription": "Digital/Mind Productos",
+            "UTTypeConformsTo": ["public.json"],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": ["dmind"],
+              "public.mime-type": "application/vnd.digitalmind"
+            }
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D0D0F"
       },
-      "package": "com.yerald.digitalmind"
+      "package": "com.yerald.digitalmind",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "mimeType": "application/vnd.digitalmind"
+            },
+            {
+              "mimeType": "application/octet-stream",
+              "pathPattern": ".*\\.dmind"
+            },
+            {
+              "mimeType": "*/*",
+              "pathPattern": ".*\\.dmind"
+            }
+          ],
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ]
+        }
+      ]
     },
     "scheme": "digital-mind",
     "plugins": [

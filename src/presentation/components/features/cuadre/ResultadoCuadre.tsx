@@ -268,12 +268,6 @@ export function ResultadoCuadreView({ resultado }: ResultadoCuadreProps) {
                 ))}
               </View>
             )}
-
-            {/* Importe */}
-            <View style={styles.importeBar}>
-              <Text style={styles.importeLabel}>Importe total</Text>
-              <Text style={styles.importeValor}>{formatMoneda(r.dinero_aportado)}</Text>
-            </View>
           </View>
         ))}
 

@@ -12,20 +12,25 @@ export function BarraProgresoCuadre({ completadas, total }: BarraProgresoCuadreP
   const { C: Colors } = useTheme();
   const styles = crearEstilos(Colors);
   const porcentaje = total === 0 ? 0 : Math.round((completadas / total) * 100);
-  const textoEstado = `${completadas} de ${total} secciones con datos`;
+  const completo = completadas === total && total > 0;
+  const textoEstado = completo
+    ? '¡Listo para calcular!'
+    : `${completadas} de ${total} pasos completados`;
 
   return (
     <View style={styles.container}>
       <View style={styles.encabezado}>
         <View style={styles.tituloWrapper}>
           <MaterialCommunityIcons
-            name="progress-check"
+            name={completo ? 'check-circle' : 'progress-check'}
             size={17}
-            color={Colors.accentSuccess}
+            color={completo ? Colors.accent : Colors.accentSuccess}
           />
           <Text style={styles.titulo}>Progreso del cuadre</Text>
         </View>
-        <Text style={styles.contador}>{textoEstado}</Text>
+        <Text style={[styles.contador, completo && { color: Colors.accent }]}>
+          {textoEstado}
+        </Text>
       </View>
 
       <View
@@ -35,7 +40,10 @@ export function BarraProgresoCuadre({ completadas, total }: BarraProgresoCuadreP
         accessibilityValue={{ min: 0, max: total, now: completadas, text: textoEstado }}
         style={styles.pista}
       >
-        <View style={[styles.relleno, { width: `${porcentaje}%` }]} />
+        <View style={[
+          styles.relleno,
+          { width: `${porcentaje}%`, backgroundColor: completo ? Colors.accent : Colors.accentSuccess },
+        ]} />
       </View>
     </View>
   );

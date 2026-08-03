@@ -27,29 +27,20 @@ export function useCuadre(): UseCuadreReturn {
   const cargarDatos = useCallback(async (turnoId: number) => {
     try {
       if (!datosRef.current) setCargando(true);
-      const [
-        inventarioInicial,
-        inventarioFinal,
-        entradas,
-        salidasFamiliares,
-        cambiosPrecio,
-        mermas,
-        transferencias,
-        gastos,
-        cajaPorDia,
-        registrosUSD,
-      ] = await Promise.all([
-        TurnoRepository.getInventario(turnoId, 'inicial'),
-        TurnoRepository.getInventario(turnoId, 'final'),
-        MovimientoRepository.getEntradas(turnoId),
-        MovimientoRepository.getSalidasFamiliares(turnoId),
-        MovimientoRepository.getCambiosPrecio(turnoId),
-        MovimientoRepository.getMermas(turnoId),
-        MovimientoRepository.getTransferencias(turnoId),
-        MovimientoRepository.getGastos(turnoId),
-        MovimientoRepository.getCajaPorDia(turnoId),
-        MovimientoRepository.getRegistrosUSD(turnoId),
-      ]);
+
+      // Queries secuenciales — expo-sqlite SDK 54 no soporta múltiples
+      // queries concurrentes sobre la misma instancia de DB (Promise.all
+      // causa "2nd argument cannot be cast to NativeStatement").
+      const inventarioInicial  = await TurnoRepository.getInventario(turnoId, 'inicial');
+      const inventarioFinal    = await TurnoRepository.getInventario(turnoId, 'final');
+      const entradas           = await MovimientoRepository.getEntradas(turnoId);
+      const salidasFamiliares  = await MovimientoRepository.getSalidasFamiliares(turnoId);
+      const cambiosPrecio      = await MovimientoRepository.getCambiosPrecio(turnoId);
+      const mermas             = await MovimientoRepository.getMermas(turnoId);
+      const transferencias     = await MovimientoRepository.getTransferencias(turnoId);
+      const gastos             = await MovimientoRepository.getGastos(turnoId);
+      const cajaPorDia         = await MovimientoRepository.getCajaPorDia(turnoId);
+      const registrosUSD       = await MovimientoRepository.getRegistrosUSD(turnoId);
 
       const nuevosDatos: DatosCuadre = {
         inventarioInicial,
@@ -102,4 +93,4 @@ export function useCuadre(): UseCuadreReturn {
     guardarInventarioFinal,
     calcular,
   };
-};
+}

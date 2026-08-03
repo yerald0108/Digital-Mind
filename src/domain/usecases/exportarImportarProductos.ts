@@ -34,12 +34,12 @@ export interface ResultadoImportacion {
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
-const NOMBRE_ARCHIVO = 'digitalmind-productos.json';
+// Extensión .dmind — exclusiva de Digital/Mind, evita conflictos con otros JSON
+const NOMBRE_ARCHIVO = 'digitalmind-productos.dmind';
 const VERSION_FORMATO = 1;
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helper: generar y escribir el archivo en caché ─────────────────────────
 
-/** Genera el JSON del catálogo y lo escribe en caché. Retorna el File. */
 async function generarArchivoEnCache(): Promise<{ file: File; contenido: string; total: number }> {
   const db = getDatabase();
 
@@ -73,7 +73,6 @@ async function generarArchivoEnCache(): Promise<{ file: File; contenido: string;
 
   const contenido = JSON.stringify(archivo, null, 2);
 
-  // Escribir en caché del dispositivo
   const file = new File(Paths.cache, NOMBRE_ARCHIVO);
   if (file.exists) file.delete();
   file.create();
@@ -82,7 +81,7 @@ async function generarArchivoEnCache(): Promise<{ file: File; contenido: string;
   return { file, contenido, total: productos.length };
 }
 
-// ── EXPORTAR: Compartir por WhatsApp, Zapya, Bluetooth, etc. ──────────────
+// ── EXPORTAR: compartir por WhatsApp, Zapya, Bluetooth ────────────────────
 
 export async function exportarProductos(): Promise<void> {
   const { file, total } = await generarArchivoEnCache();
@@ -93,42 +92,33 @@ export async function exportarProductos(): Promise<void> {
   }
 
   await Sharing.shareAsync(file.uri, {
-    mimeType: 'application/json',
+    mimeType: 'application/vnd.digitalmind',
     dialogTitle: `Exportar ${total} productos — Digital/Mind`,
-    UTI: 'public.json',
+    UTI: 'com.yerald.digitalmind.productos',
   });
 }
 
-// ── GUARDAR EN MEMORIA: el usuario elige la carpeta (Descargas, etc.) ──────
+// ── GUARDAR EN MEMORIA: el usuario elige la carpeta ───────────────────────
 
 export async function guardarEnMemoria(): Promise<string> {
-  // 1. Generar el archivo en caché
   const { contenido } = await generarArchivoEnCache();
 
-  // 2. Pedir al usuario que elija la carpeta de destino
-  //    El picker abrirá el explorador de Android (Descargas, Documentos, etc.)
   const permisos = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-
   if (!permisos.granted) {
     throw new Error('CANCELADO');
   }
 
-  // 3. Crear el archivo en la carpeta elegida por el usuario
   const uriDestino = await StorageAccessFramework.createFileAsync(
     permisos.directoryUri,
     NOMBRE_ARCHIVO,
-    'application/json'
+    'application/vnd.digitalmind'
   );
 
-  // 4. Escribir el contenido en base64 (requerido por SAF)
-  //    Convertir el string JSON a base64 manualmente
   const base64 = btoa(unescape(encodeURIComponent(contenido)));
   await StorageAccessFramework.writeAsStringAsync(uriDestino, base64, {
     encoding: 'base64' as any,
   });
 
-  // Retornar el nombre de la carpeta elegida para mostrarlo en el toast
-  // El directoryUri tiene formato content://...%3A<carpeta>
   try {
     const partes = decodeURIComponent(permisos.directoryUri).split(':');
     const carpeta = partes[partes.length - 1] || 'la carpeta seleccionada';
@@ -138,11 +128,39 @@ export async function guardarEnMemoria(): Promise<string> {
   }
 }
 
-// ── IMPORTAR — Fase 1: seleccionar archivo ────────────────────────────────
+// ── PARSEAR: leer y validar un archivo desde cualquier URI ────────────────
+// Usado por el intent handler en _layout.tsx cuando el usuario abre un .dmind
+// desde WhatsApp, Zapya, Bluetooth, explorador de archivos, etc.
+
+export async function parsearArchivoImportacion(uri: string): Promise<ArchivoProductos> {
+  let contenido: string;
+
+  try {
+    const file = new File(uri);
+    if (!file.exists) {
+      throw new Error('No se pudo acceder al archivo.');
+    }
+    contenido = file.textSync();
+  } catch {
+    // Algunos proveedores de contenido (content://) no funcionan con la nueva API
+    // Fallback: leer con legacy readAsStringAsync
+    try {
+      const { readAsStringAsync } = await import('expo-file-system/legacy');
+      contenido = await readAsStringAsync(uri);
+    } catch {
+      throw new Error('No se pudo leer el archivo. Intenta guardarlo primero y abrirlo desde el almacenamiento.');
+    }
+  }
+
+  return validarContenidoJSON(contenido);
+}
+
+// ── SELECCIONAR: abrir el explorador de archivos manualmente ──────────────
 
 export async function seleccionarArchivoImportacion(): Promise<ArchivoProductos> {
   const resultado = await DocumentPicker.getDocumentAsync({
-    type: 'application/json',
+    // Aceptar tanto .dmind como .json para compatibilidad con versiones anteriores
+    type: ['application/vnd.digitalmind', 'application/json', 'application/octet-stream', '*/*'],
     copyToCacheDirectory: true,
     multiple: false,
   });
@@ -152,41 +170,34 @@ export async function seleccionarArchivoImportacion(): Promise<ArchivoProductos>
   }
 
   const asset = resultado.assets[0];
+  return await parsearArchivoImportacion(asset.uri);
+}
 
-  // Leer el contenido usando la nueva API de SDK 54
-  const file = new File(asset.uri);
-  if (!file.exists) {
-    throw new Error('No se pudo acceder al archivo seleccionado.');
-  }
+// ── VALIDAR: parsear y validar el contenido JSON ──────────────────────────
 
-  const contenido = file.textSync();
-
-  // Parsear JSON
+function validarContenidoJSON(contenido: string): ArchivoProductos {
   let datos: any;
   try {
     datos = JSON.parse(contenido);
   } catch {
-    throw new Error('El archivo seleccionado no es un JSON válido. Asegúrate de exportar desde Digital/Mind.');
+    throw new Error('El archivo no es un JSON válido.');
   }
 
-  // Validar estructura
   if (!datos || typeof datos !== 'object') {
     throw new Error('Formato de archivo inválido.');
   }
   if (datos.app !== 'Digital/Mind') {
-    throw new Error('Este archivo no fue exportado por Digital/Mind.');
+    // No es un archivo de Digital/Mind — ignorar silenciosamente
+    throw new Error('NO_ES_DIGITALMIND');
   }
-  if (!Array.isArray(datos.productos)) {
-    throw new Error('El archivo no contiene una lista de productos válida.');
-  }
-  if (datos.productos.length === 0) {
-    throw new Error('El archivo no contiene ningún producto.');
+  if (!Array.isArray(datos.productos) || datos.productos.length === 0) {
+    throw new Error('El archivo no contiene productos.');
   }
 
   return datos as ArchivoProductos;
 }
 
-// ── IMPORTAR — Fase 2: insertar en SQLite ─────────────────────────────────
+// ── IMPORTAR: insertar productos en SQLite ────────────────────────────────
 
 export async function importarProductos(
   datos: ArchivoProductos,

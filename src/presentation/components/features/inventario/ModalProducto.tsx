@@ -19,7 +19,7 @@ type FormData = z.infer<typeof productoSchema>;
 interface ModalProductoProps {
   visible: boolean;
   onClose: () => void;
-  onGuardar: (data: FormData) => Promise<void>;
+  onGuardar: (data: FormData, indiceActual: number) => Promise<void>;
   productos?: Producto[];
   productoEditar?: Producto | null;
   indiceInicial?: number;
@@ -85,7 +85,7 @@ export function ModalProducto({
 
   const onSubmit = async (data: FormData) => {
     try {
-      await onGuardar(data);
+      await onGuardar(data, indiceActual);
       setGuardado(true);
       if (!esCarrusel) {
         reset();

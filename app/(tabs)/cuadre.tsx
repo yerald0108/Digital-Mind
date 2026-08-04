@@ -1,5 +1,5 @@
 // app/(tabs)/cuadre.tsx
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,11 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Dimensions,
 } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -26,6 +30,7 @@ import { SeccionGastos } from '../../src/presentation/components/features/cuadre
 import { SeccionCajaPorDia } from '../../src/presentation/components/features/cuadre/SeccionCajaPorDia';
 import { ResultadoCuadreView } from '../../src/presentation/components/features/cuadre/ResultadoCuadre';
 import { BarraProgresoCuadre } from '../../src/presentation/components/features/cuadre/BarraProgresoCuadre';
+import { ModalConfirmacion } from '../../src/presentation/components/ui/ModalConfirmacion';
 import { TransferenciaInput } from '../../src/domain/entities/Transferencia';
 import { RegistroUSDInput } from '../../src/domain/entities/RegistroUSD';
 import { formatMoneda } from '../../src/utils/formatters';
@@ -33,7 +38,6 @@ import { GastoInput } from '../../src/domain/entities/Gasto';
 import { CajaDiaInput } from '../../src/domain/entities/CajaDia';
 import { getColors, Typography, Spacing, Radius } from '../../src/constants/theme';
 import { useTheme } from '../../src/presentation/hooks/useTheme';
-import { ModalConfirmacion } from '@/presentation/components/ui/ModalConfirmacion';
 
 type Seccion = 'inventario' | 'transferencias' | 'usd' | 'gastos' | 'caja' | 'resultado';
 
@@ -61,10 +65,27 @@ export default function CuadreScreen() {
   const [seccionActiva, setSeccionActiva] = useState<Seccion>('inventario');
   const [guardandoInventario, setGuardandoInventario] = useState(false);
 
-  const [pendienteEliminar, setPendienteEliminar] = useState<{
-    tipo: 'transferencia' | 'usd' | 'gasto';
-    id: number;
-  } | null>(null);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const indiceSeccionRef = useRef(0);
+
+  const cambiarSeccion = useCallback((nuevaSeccion: Seccion) => {
+    const indiceActual = indiceSeccionRef.current;
+    const indiceNuevo = SECCIONES.findIndex((s) => s.id === nuevaSeccion);
+    const direccion = indiceNuevo > indiceActual ? 1 : -1;
+
+    // La nueva sección entra desde fuera de la pantalla
+    slideAnim.setValue(direccion * SCREEN_WIDTH);
+
+    setSeccionActiva(nuevaSeccion);
+    indiceSeccionRef.current = indiceNuevo;
+
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 68,
+      friction: 11,
+    }).start();
+  }, [slideAnim]);
 
   const turnoId = turno?.id ?? null;
 
@@ -72,6 +93,12 @@ export default function CuadreScreen() {
     productos,
     turnoId ?? 0
   );
+
+  // El estado solo necesita tipo e id
+  const [pendienteEliminar, setPendienteEliminar] = useState<{
+    tipo: 'transferencia' | 'usd' | 'gasto';
+    id: number;
+  } | null>(null);
 
   const seccionesCompletadas: Record<Seccion, boolean> = {
     inventario: (datos?.inventarioFinal.length ?? 0) > 0,
@@ -82,26 +109,9 @@ export default function CuadreScreen() {
       (turno?.dias_duracion ?? 1),
     resultado: resultado !== null,
   };
-
-  // Secciones opcionales: solo cuentan en el total si tienen al menos 1 registro.
-  // Secciones obligatorias (inventario, caja, resultado) siempre cuentan.
-  const hayTransferencias = (datos?.transferencias.length ?? 0) > 0;
-  const hayUSD            = (datos?.registrosUSD.length ?? 0) > 0;
-  const hayGastos         = (datos?.gastos.length ?? 0) > 0;
-
-  const totalSecciones =
-    3 +                                          // inventario + caja + resultado (siempre)
-    (hayTransferencias ? 1 : 0) +
-    (hayUSD ? 1 : 0) +
-    (hayGastos ? 1 : 0);
-
-  const totalSeccionesCompletadas =
-    (seccionesCompletadas.inventario ? 1 : 0) +
-    (seccionesCompletadas.caja ? 1 : 0) +
-    (seccionesCompletadas.resultado ? 1 : 0) +
-    (hayTransferencias && seccionesCompletadas.transferencias ? 1 : 0) +
-    (hayUSD && seccionesCompletadas.usd ? 1 : 0) +
-    (hayGastos && seccionesCompletadas.gastos ? 1 : 0);
+  const totalSeccionesCompletadas = Object.values(seccionesCompletadas)
+    .filter(Boolean)
+    .length;
 
   // Recargar el estado del turno y los productos cada vez que la pantalla
   // recibe el foco. Esto resuelve que el Inventario Final quede vacío al
@@ -171,7 +181,7 @@ export default function CuadreScreen() {
       setGuardandoInventario(true);
       await guardarInventarioFinal(turno.id, toInputArray());
       toast.exito('Inventario final guardado', 'El conteo fue registrado correctamente');
-      setSeccionActiva('transferencias');
+      cambiarSeccion('transferencias');
     } catch {
       toast.error('Error', 'No se pudo guardar el inventario final');
     } finally {
@@ -209,6 +219,15 @@ export default function CuadreScreen() {
     setPendienteEliminar({ tipo: 'gasto', id });
   };
 
+  const handleGuardarCajaPorDia = async (inputs: CajaDiaInput[]) => {
+    await MovimientoRepository.guardarCajaPorDia(inputs);
+    await cargarDatos(turno.id);
+    toast.exito(
+      'Caja guardada',
+      `${inputs.length} ${inputs.length === 1 ? 'día actualizado' : 'días actualizados'}`
+    );
+  };
+
   const handleConfirmarEliminar = async () => {
     if (!pendienteEliminar) return;
     const { tipo, id } = pendienteEliminar;
@@ -229,27 +248,42 @@ export default function CuadreScreen() {
     }
   };
 
-  const handleGuardarCajaPorDia = async (inputs: CajaDiaInput[]) => {
-    await MovimientoRepository.guardarCajaPorDia(inputs);
-    await cargarDatos(turno.id);
-    toast.exito(
-      'Caja guardada',
-      `${inputs.length} ${inputs.length === 1 ? 'día actualizado' : 'días actualizados'}`
-    );
-  };
-
   const handleCalcular = () => {
     if (!datos?.inventarioFinal.length) {
       toast.advertencia(
         'Falta inventario final',
         'Guarda el inventario final antes de calcular'
       );
-      setSeccionActiva('inventario');
+      cambiarSeccion('inventario');
       return;
     }
     calcular();
-    setSeccionActiva('resultado');
+    cambiarSeccion('resultado');
     toast.exito('Cuadre calculado', 'El resultado está listo');
+  };
+
+  const getMensajeEliminar = () => {
+    if (!pendienteEliminar) return '';
+    switch (pendienteEliminar.tipo) {
+      case 'transferencia':
+        return `¿Eliminar la transferencia de "${pendienteEliminar}"?`;
+      case 'usd':
+        return `¿Eliminar el registro USD de "${pendienteEliminar}"?`;
+      case 'gasto':
+        return `¿Eliminar el gasto "${pendienteEliminar }"?`;
+    }
+  };
+
+  const getTituloEliminar = () => {
+    if (!pendienteEliminar) return '';
+    switch (pendienteEliminar.tipo) {
+      case 'transferencia':
+        return 'Eliminar transferencia';
+      case 'usd':
+        return 'Eliminar registro USD';
+      case 'gasto':
+        return 'Eliminar gasto';
+    }
   };
 
   return (
@@ -278,7 +312,7 @@ export default function CuadreScreen() {
         </View>
         <BarraProgresoCuadre
           completadas={totalSeccionesCompletadas}
-          total={totalSecciones}
+          total={SECCIONES.length}
         />
       </View>
 
@@ -297,7 +331,7 @@ export default function CuadreScreen() {
               <TouchableOpacity
                 key={s.id}
                 style={[styles.navItem, activa && styles.navItemActivo]}
-                onPress={() => setSeccionActiva(s.id)}
+                onPress={() => cambiarSeccion(s.id)}
                 activeOpacity={0.7}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: activa }}
@@ -330,6 +364,7 @@ export default function CuadreScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
+      <Animated.View style={[styles.contenidoScroll, { transform: [{ translateX: slideAnim }] }]}>
       <ScrollView
         style={styles.contenidoScroll}
         contentContainerStyle={styles.contenidoPadding}
@@ -389,70 +424,68 @@ export default function CuadreScreen() {
         )}
 
         {seccionActiva === 'resultado' && !resultado && (
-        <View style={styles.checklistContainer}>
-          <Text style={styles.checklistTitulo}>Para calcular el cuadre necesitas:</Text>
+          <View style={styles.checklistContainer}>
+            <Text style={styles.checklistTitulo}>Para calcular el cuadre necesitas:</Text>
 
-          <View style={styles.checklistItem}>
-            <MaterialCommunityIcons
-              name={datos && datos.inventarioFinal.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
-              size={20}
-              color={datos && datos.inventarioFinal.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
-            />
-            <Text style={[
-              styles.checklistTexto,
-              datos && datos.inventarioFinal.length > 0 && styles.checklistCompletado
-            ]}>
-              Inventario final{datos && datos.inventarioFinal.length > 0 ? ' (completado)' : ' (pendiente)'}
-            </Text>
+            <View style={styles.checklistItem}>
+              <MaterialCommunityIcons
+                name={datos && datos.inventarioFinal.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                size={20}
+                color={datos && datos.inventarioFinal.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+              />
+              <Text style={[
+                styles.checklistTexto,
+                datos && datos.inventarioFinal.length > 0 && styles.checklistCompletado
+              ]}>
+                Inventario final{datos && datos.inventarioFinal.length > 0 ? ' (completado)' : ' (pendiente)'}
+              </Text>
+            </View>
+
+            <View style={styles.checklistItem}>
+              <MaterialCommunityIcons
+                name={datos && datos.cajaPorDia.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                size={20}
+                color={datos && datos.cajaPorDia.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+              />
+              <Text style={[
+                styles.checklistTexto,
+                datos && datos.cajaPorDia.length > 0 && styles.checklistCompletado
+              ]}>
+                Caja por dia{datos && datos.cajaPorDia.length > 0 ? ' (completado)' : ' (pendiente)'}
+              </Text>
+            </View>
+
+            <View style={styles.checklistItem}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={20}
+                color={Colors.textSecondary}
+              />
+              <Text style={styles.checklistTexto}>
+                Transferencias, USD y Gastos son opcionales
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.botonIrInventario}
+              onPress={() => cambiarSeccion('inventario')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.botonIrInventarioTexto}>
+                Ir a Inventario Final
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.checklistItem}>
-            <MaterialCommunityIcons
-              name={datos && datos.cajaPorDia.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
-              size={20}
-              color={datos && datos.cajaPorDia.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
-            />
-            <Text style={[
-              styles.checklistTexto,
-              datos && datos.cajaPorDia.length > 0 && styles.checklistCompletado
-            ]}>
-              Caja por dia{datos && datos.cajaPorDia.length > 0 ? ' (completado)' : ' (pendiente)'}
-            </Text>
-          </View>
-
-          <View style={styles.checklistItem}>
-            <MaterialCommunityIcons
-              name="information-outline"
-              size={20}
-              color={Colors.textSecondary}
-            />
-            <Text style={styles.checklistTexto}>
-              Transferencias, USD y Gastos son opcionales
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.botonIrInventario}
-            onPress={() => setSeccionActiva('inventario')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.botonIrInventarioTexto}>
-              Ir a Inventario Final
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
       </ScrollView>
+      </Animated.View>
       </KeyboardAvoidingView>
 
+      {/* ── Modal de Confirmación ── */}
       <ModalConfirmacion
         visible={pendienteEliminar !== null}
-        titulo={
-          pendienteEliminar?.tipo === 'transferencia' ? 'Eliminar transferencia'
-          : pendienteEliminar?.tipo === 'usd' ? 'Eliminar registro USD'
-          : 'Eliminar gasto'
-        }
-        mensaje="¿Estás seguro? Esta acción no se puede deshacer."
+        titulo={getTituloEliminar()}
+        mensaje={getMensajeEliminar()}
         onConfirmar={handleConfirmarEliminar}
         onCancelar={() => setPendienteEliminar(null)}
       />

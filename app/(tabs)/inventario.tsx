@@ -55,14 +55,17 @@ export default function InventarioScreen() {
     setIndiceEditar(null);
   };
 
-  const handleGuardar = async (data: {
-    nombre: string;
-    precio_costo: number;
-    precio_venta: number;
-    cantidad: number;
-  }) => {
+  const handleGuardar = async (
+    data: {
+      nombre: string;
+      precio_costo: number;
+      precio_venta: number;
+      cantidad: number;
+    },
+    indiceActual: number = indiceEditar ?? 0,
+  ) => {
     if (indiceEditar !== null) {
-      const producto = productos[indiceEditar];
+      const producto = productos[indiceActual];
       if (!producto) return;
       await actualizarProducto(producto.id, data);
       toast.exito('Producto actualizado', `"${data.nombre}" actualizado`);

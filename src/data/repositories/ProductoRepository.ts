@@ -97,13 +97,18 @@ export const ProductoRepository = {
   },
 
   async reordenar(items: Array<{ id: number; orden: number }>): Promise<void> {
+    if (items.length === 0) return;
     const db = getDatabase();
-    for (const item of items) {
-      await db.runAsync(
-        "UPDATE productos SET orden = ?, actualizado_en = datetime('now') WHERE id = ?",
-        [item.orden, item.id]
-      );
-    }
+    // Una sola transacción para todos los updates: evita N round-trips a SQLite
+    // y es atómica — si algo falla, ningún orden queda a medias.
+    await db.withTransactionAsync(async () => {
+      for (const item of items) {
+        await db.runAsync(
+          "UPDATE productos SET orden = ?, actualizado_en = datetime('now') WHERE id = ?",
+          [item.orden, item.id]
+        );
+      }
+    });
   },
 
 };

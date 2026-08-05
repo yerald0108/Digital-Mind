@@ -50,6 +50,47 @@ function initDatabase(): SQLite.SQLiteDatabase {
     // Sin datos viejos o columnas antiguas no disponibles — ignorar
   }
 
+  // Migración v3: índices para acelerar las queries del cuadre.
+  // CREATE INDEX IF NOT EXISTS es idempotente — seguro ejecutar siempre.
+  // Con 60+ productos y múltiples movimientos por turno, estos índices
+  // reducen significativamente el tiempo de cargarDatos en useCuadre.
+  try {
+    db.execSync(`
+      CREATE INDEX IF NOT EXISTS idx_inventario_turno_turno_tipo
+        ON inventario_turno(turno_id, tipo);
+
+      CREATE INDEX IF NOT EXISTS idx_entradas_turno
+        ON entradas(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_salidas_familiares_turno
+        ON salidas_familiares(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_cambios_precio_turno
+        ON cambios_precio(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_mermas_turno
+        ON mermas(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_transferencias_turno
+        ON transferencias(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_gastos_turno
+        ON gastos(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_caja_por_dia_turno
+        ON caja_por_dia(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_registros_usd_turno
+        ON registros_usd(turno_id);
+
+      CREATE INDEX IF NOT EXISTS idx_productos_orden
+        ON productos(orden ASC);
+    `);
+    console.log('[DB] Migración v3: índices creados');
+  } catch (e) {
+    console.warn('[DB] Migración v3: advertencia al crear índices:', e);
+  }
+
   console.log(`[DB] Inicializada — schema v${SCHEMA_VERSION}`);
   return db;
 }

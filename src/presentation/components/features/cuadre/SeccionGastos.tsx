@@ -1,12 +1,11 @@
 // src/presentation/components/features/cuadre/SeccionGastos.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
-import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Gasto, GastoInput } from '../../../../domain/entities/Gasto';
 import { gastoSchema } from '../../../../utils/validators';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -20,7 +19,8 @@ interface SeccionGastosProps {
   turnoId: number;
   gastos: Gasto[];
   onCrear: (input: GastoInput) => Promise<void>;
-  onEliminar: (id: number) => Promise<void>;
+  // onEliminar recibe el id — el modal de confirmacion lo maneja el padre (cuadre.tsx)
+  onEliminar: (id: number) => void;
 }
 
 export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionGastosProps) {
@@ -49,8 +49,6 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
     setMostrarForm(false);
   };
 
-  const [pendienteEliminar, setPendienteEliminar] = useState<number | null>(null);
-
   const totalGastos = gastos.reduce((acc, g) => acc + g.monto, 0);
 
   return (
@@ -72,7 +70,7 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
             render={({ field: { onChange, value } }) => (
               <Input
                 label="Concepto (opcional)"
-                placeholder="Ej: Jabón cocina, pago de servicio..."
+                placeholder="Ej: Jabon cocina, pago de servicio..."
                 value={value ?? ''}
                 onChangeText={onChange}
                 icon="text-short"
@@ -138,7 +136,7 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
             </View>
           </View>
           <TouchableOpacity
-            onPress={() => setPendienteEliminar(g.id)}
+            onPress={() => onEliminar(g.id)}
             style={styles.botonEliminar}
           >
             <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
@@ -154,18 +152,6 @@ export function SeccionGastos({ turnoId, gastos, onCrear, onEliminar }: SeccionG
         <MaterialCommunityIcons name="plus" size={16} color={Colors.accent} />
         <Text style={styles.botonAgregarTexto}>Agregar gasto</Text>
       </TouchableOpacity>
-
-      {/* ── Modal de Confirmación ── */}
-      <ModalConfirmacion
-        visible={pendienteEliminar !== null}
-        titulo="Eliminar gasto" 
-        mensaje="¿Estás seguro? Esta acción no se puede deshacer."
-        onConfirmar={() => {
-          if (pendienteEliminar !== null) onEliminar(pendienteEliminar);
-          setPendienteEliminar(null);
-        }}
-        onCancelar={() => setPendienteEliminar(null)}
-      />
     </View>
   );
 }

@@ -1,12 +1,11 @@
 // src/presentation/components/features/cuadre/SeccionTransferencias.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
-import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Transferencia, TransferenciaInput } from '../../../../domain/entities/Transferencia';
 import { transferenciaSchema } from '../../../../utils/validators';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
@@ -20,7 +19,8 @@ interface SeccionTransferenciasProps {
   turnoId: number;
   transferencias: Transferencia[];
   onCrear: (input: TransferenciaInput) => Promise<void>;
-  onEliminar: (id: number) => Promise<void>;
+  // onEliminar recibe el id — el modal de confirmacion lo maneja el padre (cuadre.tsx)
+  onEliminar: (id: number) => void;
 }
 
 export function SeccionTransferencias({
@@ -44,8 +44,6 @@ export function SeccionTransferencias({
     reset();
     setMostrarForm(false);
   };
-
-  const [pendienteEliminar, setPendienteEliminar] = useState<number | null>(null);
 
   const totalTransferencias = transferencias.reduce((acc, t) => acc + t.monto, 0);
 
@@ -95,7 +93,7 @@ export function SeccionTransferencias({
             </View>
           </View>
           <TouchableOpacity
-            onPress={() => setPendienteEliminar(t.id)}
+            onPress={() => onEliminar(t.id)}
             style={styles.botonEliminar}>
             <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
           </TouchableOpacity>
@@ -111,18 +109,6 @@ export function SeccionTransferencias({
         <MaterialCommunityIcons name="plus" size={16} color={Colors.accent} />
         <Text style={styles.botonAgregarTexto}>Agregar transferencia</Text>
       </TouchableOpacity>
-
-      {/* ── Modal de Confirmación ── */}
-      <ModalConfirmacion
-        visible={pendienteEliminar !== null}
-        titulo="Eliminar transferencia" 
-        mensaje="¿Estás seguro? Esta acción no se puede deshacer."
-        onConfirmar={() => {
-          if (pendienteEliminar !== null) onEliminar(pendienteEliminar);
-          setPendienteEliminar(null);
-        }}
-        onCancelar={() => setPendienteEliminar(null)}
-      />
     </View>
   );
 }

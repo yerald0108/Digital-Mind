@@ -1,5 +1,5 @@
 // app/(tabs)/cuadre.tsx
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Animated,
   Dimensions,
+  Animated,
+  InteractionManager,
 } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -46,13 +47,17 @@ const SECCIONES: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 }[] = [
-  { id: 'inventario', label: 'Inv. Final', icon: 'package-variant-closed' },
-  { id: 'transferencias', label: 'Transfer.', icon: 'bank-transfer' },
-  { id: 'usd', label: 'USD', icon: 'currency-usd' },
-  { id: 'gastos', label: 'Gastos', icon: 'minus-circle-outline' },
-  { id: 'caja', label: 'Caja', icon: 'cash' },
-  { id: 'resultado', label: 'Resultado', icon: 'calculator-variant-outline' },
+  { id: 'inventario',     label: 'Inv. Final', icon: 'package-variant-closed' },
+  { id: 'transferencias', label: 'Transfer.',  icon: 'bank-transfer' },
+  { id: 'usd',            label: 'USD',        icon: 'currency-usd' },
+  { id: 'gastos',         label: 'Gastos',     icon: 'minus-circle-outline' },
+  { id: 'caja',           label: 'Caja',       icon: 'cash' },
+  { id: 'resultado',      label: 'Resultado',  icon: 'calculator-variant-outline' },
 ];
+
+// Secciones que son opcionales: si el usuario las visitó sin agregar datos,
+// se consideran completadas (el usuario decidió que no aplica para este turno).
+const SECCIONES_OPCIONALES: Set<Seccion> = new Set(['transferencias', 'usd', 'gastos']);
 
 export default function CuadreScreen() {
   const { C: Colors } = useTheme();
@@ -64,28 +69,99 @@ export default function CuadreScreen() {
     useCuadre();
   const [seccionActiva, setSeccionActiva] = useState<Seccion>('inventario');
   const [guardandoInventario, setGuardandoInventario] = useState(false);
+  const [calculando, setCalculando] = useState(false);
 
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  // ── Progreso inteligente ──────────────────────────────────
+  // Rastrea qué secciones opcionales ya visitó el usuario.
+  // Al visitar una sección opcional sin agregar datos, se marca como
+  // "revisada" — el usuario decidió que no aplica para este turno.
+  const [seccionesVisitadas, setSeccionesVisitadas] = useState<Set<Seccion>>(new Set());
+
+  // Resetear secciones visitadas cuando cambia el turno (nuevo turno = empezar de cero)
+  const turnoIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (turno?.id && turno.id !== turnoIdRef.current) {
+      turnoIdRef.current = turno.id;
+      setSeccionesVisitadas(new Set());
+    }
+  }, [turno?.id]);
+
+  // ── Animación entre secciones (sin pestañeo) ─────────────
+  // Estrategia: 2 fases completamente en el hilo JS.
+  //
+  // FASE 1 — fade-out del contenido actual (80 ms).
+  // FASE 2 — en el callback de completado: cambiamos la sección
+  //           (el nuevo contenido aparece ya fuera de pantalla porque
+  //           translateX ya tiene el valor ±SCREEN_WIDTH antes del setState),
+  //           luego slide-in + fade-in simultáneos.
+  //
+  // La clave del fix: `translateX.setValue(direccion * SCREEN_WIDTH)` ocurre
+  // ANTES de `setSeccionActiva`, por lo que cuando React renderiza el nuevo
+  // contenido, la vista ya está posicionada fuera de pantalla. Nunca habrá
+  // un frame donde el contenido nuevo esté en posición 0 visible.
+  const opacidad = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
   const indiceSeccionRef = useRef(0);
+  const animandoRef = useRef(false);
 
   const cambiarSeccion = useCallback((nuevaSeccion: Seccion) => {
+    if (animandoRef.current) return;
+    if (nuevaSeccion === seccionActiva) return;
+
     const indiceActual = indiceSeccionRef.current;
     const indiceNuevo = SECCIONES.findIndex((s) => s.id === nuevaSeccion);
     const direccion = indiceNuevo > indiceActual ? 1 : -1;
 
-    // La nueva sección entra desde fuera de la pantalla
-    slideAnim.setValue(direccion * SCREEN_WIDTH);
+    // Marcar sección opcional como visitada al salir de ella
+    if (SECCIONES_OPCIONALES.has(seccionActiva)) {
+      setSeccionesVisitadas((prev) => {
+        const siguiente = new Set(prev);
+        siguiente.add(seccionActiva);
+        return siguiente;
+      });
+    }
 
-    setSeccionActiva(nuevaSeccion);
-    indiceSeccionRef.current = indiceNuevo;
+    animandoRef.current = true;
 
-    Animated.spring(slideAnim, {
+    // FASE 1: fade-out del contenido actual
+    Animated.timing(opacidad, {
       toValue: 0,
+      duration: 80,
       useNativeDriver: true,
-      tension: 68,
-      friction: 11,
-    }).start();
-  }, [slideAnim]);
+    }).start(({ finished }) => {
+      if (!finished) {
+        animandoRef.current = false;
+        return;
+      }
+
+      // Posicionar fuera de pantalla ANTES del setState — punto crítico del fix.
+      // Cuando React renderice el nuevo contenido, ya estará en ±SCREEN_WIDTH.
+      translateX.setValue(direccion * SCREEN_WIDTH);
+      indiceSeccionRef.current = indiceNuevo;
+
+      // Cambiar sección: React renderiza el nuevo contenido ya desplazado
+      setSeccionActiva(nuevaSeccion);
+
+      // Esperar al siguiente frame para que el render se complete,
+      // luego arrancar slide-in + fade-in simultáneos
+      InteractionManager.runAfterInteractions(() => {
+        Animated.parallel([
+          Animated.timing(translateX, {
+            toValue: 0,
+            duration: 240,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacidad, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          animandoRef.current = false;
+        });
+      });
+    });
+  }, [seccionActiva, opacidad, translateX]);
 
   const turnoId = turno?.id ?? null;
 
@@ -94,29 +170,52 @@ export default function CuadreScreen() {
     turnoId ?? 0
   );
 
-  // El estado solo necesita tipo e id
   const [pendienteEliminar, setPendienteEliminar] = useState<{
     tipo: 'transferencia' | 'usd' | 'gasto';
     id: number;
   } | null>(null);
 
+  // ── Lógica de progreso inteligente ───────────────────────
+  // Caja completada: todos los días tienen monto guardado y > 0
+  const cajaCompleta = (() => {
+    if (!datos || !turno) return false;
+    const diasRequeridos = turno.dias_duracion;
+    const diasConMonto = datos.cajaPorDia.filter((c) => c.monto_efectivo > 0);
+    return diasConMonto.length >= diasRequeridos;
+  })();
+
   const seccionesCompletadas: Record<Seccion, boolean> = {
+    // Obligatorias: requieren datos reales
     inventario: (datos?.inventarioFinal.length ?? 0) > 0,
-    transferencias: (datos?.transferencias.length ?? 0) > 0,
-    usd: (datos?.registrosUSD.length ?? 0) > 0,
-    gastos: (datos?.gastos.length ?? 0) > 0,
-    caja: new Set(datos?.cajaPorDia.map((registro) => registro.dia_numero) ?? []).size >=
-      (turno?.dias_duracion ?? 1),
+    caja: cajaCompleta,
+    // Opcionales: se marcan si hay datos O si el usuario ya las visitó
+    transferencias:
+      (datos?.transferencias.length ?? 0) > 0 || seccionesVisitadas.has('transferencias'),
+    usd:
+      (datos?.registrosUSD.length ?? 0) > 0 || seccionesVisitadas.has('usd'),
+    gastos:
+      (datos?.gastos.length ?? 0) > 0 || seccionesVisitadas.has('gastos'),
+    // Resultado: se completa solo cuando ya hay un resultado calculado
     resultado: resultado !== null,
   };
-  const totalSeccionesCompletadas = Object.values(seccionesCompletadas)
-    .filter(Boolean)
-    .length;
 
-  // Recargar el estado del turno y los productos cada vez que la pantalla
-  // recibe el foco. Esto resuelve que el Inventario Final quede vacío al
-  // llegar a la pantalla por primera vez después de abrir un turno, o que
-  // no incluya productos nuevos creados desde la pantalla de Entradas.
+  // Para la barra de progreso, solo contamos las 5 secciones de entrada (no "resultado")
+  // El resultado es la meta, no un paso más.
+  const SECCIONES_PROGRESO: Seccion[] = ['inventario', 'transferencias', 'usd', 'gastos', 'caja'];
+  const completadasProgreso = SECCIONES_PROGRESO.filter((s) => seccionesCompletadas[s]).length;
+  const totalProgreso = SECCIONES_PROGRESO.length;
+
+  // El cuadre está listo para calcular cuando las dos obligatorias están completas
+  const listoParaCalcular = seccionesCompletadas.inventario && seccionesCompletadas.caja;
+
+  // Marcar sección activa como visitada cuando el usuario llega a ella
+  useEffect(() => {
+    if (SECCIONES_OPCIONALES.has(seccionActiva)) {
+      // Se marca al salir (en cambiarSeccion), no al entrar, para que el
+      // usuario tenga tiempo de agregar datos antes de que se marque.
+    }
+  }, [seccionActiva]);
+
   useFocusEffect(
     useCallback(() => {
       recargarTurno();
@@ -124,9 +223,6 @@ export default function CuadreScreen() {
     }, [recargarTurno, recargarProductos])
   );
 
-  // Recargar los datos del cuadre cada vez que la pantalla recibe el foco.
-  // Esto resuelve la desincronizacion entre pantallas: si el turno se abrio
-  // en la pantalla de Inicio, al navegar a Cuadre se detecta correctamente.
   useFocusEffect(
     useCallback(() => {
       if (turnoId) {
@@ -136,9 +232,6 @@ export default function CuadreScreen() {
   );
 
   // ── Pantalla de carga ─────────────────────────────────────
-  // Solo se muestra el spinner si no hay datos previos.
-  // Si ya hay datos (navegacion entre tabs), la actualizacion
-  // ocurre en segundo plano sin interrumpir la interfaz.
   if (
     (cargandoTurno && !turno) ||
     (cargando && !datos) ||
@@ -195,7 +288,7 @@ export default function CuadreScreen() {
     toast.exito('Transferencia agregada', formatMoneda(input.monto));
   };
 
-  const handleEliminarTransferencia = async (id: number) => {
+  const handleEliminarTransferencia = (id: number) => {
     setPendienteEliminar({ tipo: 'transferencia', id });
   };
 
@@ -205,7 +298,7 @@ export default function CuadreScreen() {
     toast.exito('USD registrado', `${input.cantidad_usd} USD`);
   };
 
-  const handleEliminarUSD = async (id: number) => {
+  const handleEliminarUSD = (id: number) => {
     setPendienteEliminar({ tipo: 'usd', id });
   };
 
@@ -215,7 +308,7 @@ export default function CuadreScreen() {
     toast.exito('Gasto registrado', input.concepto ?? formatMoneda(input.monto));
   };
 
-  const handleEliminarGasto = async (id: number) => {
+  const handleEliminarGasto = (id: number) => {
     setPendienteEliminar({ tipo: 'gasto', id });
   };
 
@@ -248,43 +341,112 @@ export default function CuadreScreen() {
     }
   };
 
+  // Feedback inmediato al calcular: activa el loader, luego calcula en el siguiente frame
   const handleCalcular = () => {
-    if (!datos?.inventarioFinal.length) {
-      toast.advertencia(
-        'Falta inventario final',
-        'Guarda el inventario final antes de calcular'
-      );
+    if (!seccionesCompletadas.inventario) {
+      toast.advertencia('Falta inventario final', 'Guarda el inventario final antes de calcular');
       cambiarSeccion('inventario');
       return;
     }
-    calcular();
-    cambiarSeccion('resultado');
-    toast.exito('Cuadre calculado', 'El resultado está listo');
+    if (!seccionesCompletadas.caja) {
+      toast.advertencia('Falta la caja', 'Ingresa el efectivo de cada día antes de calcular');
+      cambiarSeccion('caja');
+      return;
+    }
+
+    setCalculando(true);
+    // Pequeño timeout para que el render con el loader ocurra antes del cálculo
+    setTimeout(() => {
+      calcular();
+      setCalculando(false);
+      cambiarSeccion('resultado');
+      toast.exito('Cuadre calculado', 'El resultado está listo');
+    }, 50);
   };
 
   const getMensajeEliminar = () => {
     if (!pendienteEliminar) return '';
     switch (pendienteEliminar.tipo) {
-      case 'transferencia':
-        return `¿Eliminar la transferencia de "${pendienteEliminar}"?`;
-      case 'usd':
-        return `¿Eliminar el registro USD de "${pendienteEliminar}"?`;
-      case 'gasto':
-        return `¿Eliminar el gasto "${pendienteEliminar }"?`;
+      case 'transferencia': return '¿Eliminar esta transferencia?';
+      case 'usd':           return '¿Eliminar este registro de USD?';
+      case 'gasto':         return '¿Eliminar este gasto?';
     }
   };
 
   const getTituloEliminar = () => {
     if (!pendienteEliminar) return '';
     switch (pendienteEliminar.tipo) {
-      case 'transferencia':
-        return 'Eliminar transferencia';
-      case 'usd':
-        return 'Eliminar registro USD';
-      case 'gasto':
-        return 'Eliminar gasto';
+      case 'transferencia': return 'Eliminar transferencia';
+      case 'usd':           return 'Eliminar registro USD';
+      case 'gasto':         return 'Eliminar gasto';
     }
   };
+
+  // ── Checklist inteligente para la pestaña Resultado ──────
+  // Construye el estado actual de cada requisito con mensajes claros
+  const checklistResultado = [
+    {
+      id: 'inventario',
+      label: 'Inventario final',
+      requerido: true,
+      completado: seccionesCompletadas.inventario,
+      accion: () => cambiarSeccion('inventario'),
+      labelAccion: 'Ir a Inv. Final',
+      mensajeFaltante: 'Realiza el conteo y guarda el inventario final',
+      mensajeOk: `${datos?.inventarioFinal.length ?? 0} productos contados`,
+    },
+    {
+      id: 'caja',
+      label: 'Efectivo en caja',
+      requerido: true,
+      completado: seccionesCompletadas.caja,
+      accion: () => cambiarSeccion('caja'),
+      labelAccion: 'Ir a Caja',
+      mensajeFaltante: `Ingresa el efectivo de ${
+        turno.dias_duracion === 1 ? 'el día' : `los ${turno.dias_duracion} días`
+      }`,
+      mensajeOk: `${datos?.cajaPorDia.filter((c) => c.monto_efectivo > 0).length ?? 0} de ${turno.dias_duracion} ${turno.dias_duracion === 1 ? 'día' : 'días'} ingresados`,
+    },
+    {
+      id: 'transferencias',
+      label: 'Transferencias',
+      requerido: false,
+      completado: seccionesCompletadas.transferencias,
+      accion: () => cambiarSeccion('transferencias'),
+      labelAccion: 'Ir a Transfer.',
+      mensajeFaltante: 'Opcional — agrega transferencias o pasa por esta pestaña',
+      mensajeOk: (datos?.transferencias.length ?? 0) > 0
+        ? `${datos?.transferencias.length} transferencia(s) registradas`
+        : 'Sin transferencias (marcado como revisado)',
+    },
+    {
+      id: 'usd',
+      label: 'USD',
+      requerido: false,
+      completado: seccionesCompletadas.usd,
+      accion: () => cambiarSeccion('usd'),
+      labelAccion: 'Ir a USD',
+      mensajeFaltante: 'Opcional — agrega registros en USD o pasa por esta pestaña',
+      mensajeOk: (datos?.registrosUSD.length ?? 0) > 0
+        ? `${datos?.registrosUSD.length} registro(s) USD`
+        : 'Sin USD (marcado como revisado)',
+    },
+    {
+      id: 'gastos',
+      label: 'Gastos',
+      requerido: false,
+      completado: seccionesCompletadas.gastos,
+      accion: () => cambiarSeccion('gastos'),
+      labelAccion: 'Ir a Gastos',
+      mensajeFaltante: 'Opcional — agrega gastos o pasa por esta pestaña',
+      mensajeOk: (datos?.gastos.length ?? 0) > 0
+        ? `${datos?.gastos.length} gasto(s) registrado(s)`
+        : 'Sin gastos (marcado como revisado)',
+    },
+  ];
+
+  const pendientesObligatorios = checklistResultado.filter((c) => c.requerido && !c.completado);
+  const pendientesOpcionales = checklistResultado.filter((c) => !c.requerido && !c.completado);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -298,21 +460,33 @@ export default function CuadreScreen() {
             <Text style={styles.subtitulo}>Turno activo</Text>
           </View>
           <TouchableOpacity
-            style={styles.botonCalcular}
+            style={[
+              styles.botonCalcular,
+              !listoParaCalcular && styles.botonCalcularDeshabilitado,
+            ]}
             onPress={handleCalcular}
             activeOpacity={0.8}
+            disabled={calculando}
           >
-            <MaterialCommunityIcons
-              name="calculator-variant"
-              size={16}
-              color={Colors.textOnAccent}
-            />
-            <Text style={styles.botonCalcularTexto}>Calcular</Text>
+            {calculando ? (
+              <ActivityIndicator size="small" color={Colors.textOnAccent} />
+            ) : (
+              <MaterialCommunityIcons
+                name="calculator-variant"
+                size={16}
+                color={Colors.textOnAccent}
+              />
+            )}
+            <Text style={styles.botonCalcularTexto}>
+              {calculando ? 'Calculando...' : 'Calcular'}
+            </Text>
           </TouchableOpacity>
         </View>
         <BarraProgresoCuadre
-          completadas={totalSeccionesCompletadas}
-          total={SECCIONES.length}
+          completadas={completadasProgreso}
+          total={totalProgreso}
+          listoParaCalcular={listoParaCalcular}
+          seccionesCompletadas={seccionesCompletadas}
         />
       </View>
 
@@ -327,6 +501,7 @@ export default function CuadreScreen() {
           {SECCIONES.map((s) => {
             const activa = seccionActiva === s.id;
             const completada = seccionesCompletadas[s.id];
+            const esOpcional = SECCIONES_OPCIONALES.has(s.id);
             return (
               <TouchableOpacity
                 key={s.id}
@@ -335,7 +510,7 @@ export default function CuadreScreen() {
                 activeOpacity={0.7}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: activa }}
-                accessibilityLabel={`${s.label}: ${completada ? 'con datos' : 'sin datos'}`}
+                accessibilityLabel={`${s.label}${completada ? ': completado' : esOpcional ? ': opcional' : ': pendiente'}`}
               >
                 <MaterialCommunityIcons
                   name={s.icon}
@@ -352,133 +527,208 @@ export default function CuadreScreen() {
                     color={Colors.accentSuccess}
                   />
                 )}
+                {!completada && esOpcional && (
+                  <MaterialCommunityIcons
+                    name="circle-outline"
+                    size={14}
+                    color={Colors.textDisabled}
+                  />
+                )}
               </TouchableOpacity>
             );
           })}
         </ScrollView>
       </View>
 
-      {/* ── Contenido scrollable independiente ── */}
+      {/* ── Contenido animado ── */}
       <KeyboardAvoidingView
         style={styles.contenidoScroll}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-      <Animated.View style={[styles.contenidoScroll, { transform: [{ translateX: slideAnim }] }]}>
-      <ScrollView
-        style={styles.contenidoScroll}
-        contentContainerStyle={styles.contenidoPadding}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
-        {seccionActiva === 'inventario' && (
-          <SeccionInventarioFinal
-            items={items}
-            inventarioInicial={datos?.inventarioInicial ?? []}
-            entradas={datos?.entradas ?? []}
-            onActualizarCantidad={actualizarCantidad}
-            onGuardar={handleGuardarInventarioFinal}
-            guardando={guardandoInventario}
-          />
-        )}
-
-        {seccionActiva === 'transferencias' && datos && (
-          <SeccionTransferencias
-            turnoId={turno.id}
-            transferencias={datos.transferencias}
-            onCrear={handleCrearTransferencia}
-            onEliminar={handleEliminarTransferencia}
-          />
-        )}
-
-        {seccionActiva === 'usd' && datos && (
-          <SeccionUSD
-            turnoId={turno.id}
-            registros={datos.registrosUSD}
-            onCrear={handleCrearUSD}
-            onEliminar={handleEliminarUSD}
-          />
-        )}
-
-        {seccionActiva === 'gastos' && datos && (
-          <SeccionGastos
-            turnoId={turno.id}
-            gastos={datos.gastos}
-            onCrear={handleCrearGasto}
-            onEliminar={handleEliminarGasto}
-          />
-        )}
-
-        {seccionActiva === 'caja' && datos && (
-          <SeccionCajaPorDia
-            turnoId={turno.id}
-            diasDuracion={turno.dias_duracion}
-            cajaPorDia={datos.cajaPorDia}
-            onGuardar={handleGuardarCajaPorDia}
-          />
-        )}
-
-        {seccionActiva === 'resultado' && resultado && (
-          <ResultadoCuadreView resultado={resultado} />
-        )}
-
-        {seccionActiva === 'resultado' && !resultado && (
-          <View style={styles.checklistContainer}>
-            <Text style={styles.checklistTitulo}>Para calcular el cuadre necesitas:</Text>
-
-            <View style={styles.checklistItem}>
-              <MaterialCommunityIcons
-                name={datos && datos.inventarioFinal.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
-                size={20}
-                color={datos && datos.inventarioFinal.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+        <Animated.View style={[styles.contenidoScroll, { opacity: opacidad, transform: [{ translateX }] }]}>
+          <ScrollView
+            style={styles.contenidoScroll}
+            contentContainerStyle={styles.contenidoPadding}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+          >
+            {seccionActiva === 'inventario' && (
+              <SeccionInventarioFinal
+                items={items}
+                inventarioInicial={datos?.inventarioInicial ?? []}
+                entradas={datos?.entradas ?? []}
+                onActualizarCantidad={actualizarCantidad}
+                onGuardar={handleGuardarInventarioFinal}
+                guardando={guardandoInventario}
               />
-              <Text style={[
-                styles.checklistTexto,
-                datos && datos.inventarioFinal.length > 0 && styles.checklistCompletado
-              ]}>
-                Inventario final{datos && datos.inventarioFinal.length > 0 ? ' (completado)' : ' (pendiente)'}
-              </Text>
-            </View>
+            )}
 
-            <View style={styles.checklistItem}>
-              <MaterialCommunityIcons
-                name={datos && datos.cajaPorDia.length > 0 ? 'check-circle' : 'checkbox-blank-circle-outline'}
-                size={20}
-                color={datos && datos.cajaPorDia.length > 0 ? Colors.accentSuccess : Colors.textDisabled}
+            {seccionActiva === 'transferencias' && (
+              <SeccionTransferencias
+                turnoId={turno.id}
+                transferencias={datos?.transferencias ?? []}
+                onCrear={handleCrearTransferencia}
+                onEliminar={handleEliminarTransferencia}
               />
-              <Text style={[
-                styles.checklistTexto,
-                datos && datos.cajaPorDia.length > 0 && styles.checklistCompletado
-              ]}>
-                Caja por dia{datos && datos.cajaPorDia.length > 0 ? ' (completado)' : ' (pendiente)'}
-              </Text>
-            </View>
+            )}
 
-            <View style={styles.checklistItem}>
-              <MaterialCommunityIcons
-                name="information-outline"
-                size={20}
-                color={Colors.textSecondary}
+            {seccionActiva === 'usd' && (
+              <SeccionUSD
+                turnoId={turno.id}
+                registros={datos?.registrosUSD ?? []}
+                onCrear={handleCrearUSD}
+                onEliminar={handleEliminarUSD}
               />
-              <Text style={styles.checklistTexto}>
-                Transferencias, USD y Gastos son opcionales
-              </Text>
-            </View>
+            )}
 
-            <TouchableOpacity
-              style={styles.botonIrInventario}
-              onPress={() => cambiarSeccion('inventario')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.botonIrInventarioTexto}>
-                Ir a Inventario Final
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-      </Animated.View>
+            {seccionActiva === 'gastos' && (
+              <SeccionGastos
+                turnoId={turno.id}
+                gastos={datos?.gastos ?? []}
+                onCrear={handleCrearGasto}
+                onEliminar={handleEliminarGasto}
+              />
+            )}
+
+            {seccionActiva === 'caja' && (
+              <SeccionCajaPorDia
+                turnoId={turno.id}
+                diasDuracion={turno.dias_duracion}
+                cajaPorDia={datos?.cajaPorDia ?? []}
+                onGuardar={handleGuardarCajaPorDia}
+              />
+            )}
+
+            {seccionActiva === 'resultado' && resultado && (
+              <ResultadoCuadreView resultado={resultado} />
+            )}
+
+            {seccionActiva === 'resultado' && !resultado && (
+              <View style={styles.checklistContainer}>
+                {/* Título con estado general */}
+                <View style={styles.checklistHeader}>
+                  <MaterialCommunityIcons
+                    name={listoParaCalcular ? 'check-decagram' : 'clipboard-list-outline'}
+                    size={24}
+                    color={listoParaCalcular ? Colors.accentSuccess : Colors.accent}
+                  />
+                  <View style={styles.checklistHeaderTextos}>
+                    <Text style={styles.checklistTitulo}>
+                      {listoParaCalcular
+                        ? '¡Listo para calcular!'
+                        : 'Estado del cuadre'}
+                    </Text>
+                    <Text style={styles.checklistSubtitulo}>
+                      {listoParaCalcular
+                        ? 'Todos los requisitos obligatorios están completos.'
+                        : `Faltan ${pendientesObligatorios.length} requisito(s) obligatorio(s).`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Separador */}
+                <View style={styles.checklistSeparador} />
+
+                {/* Lista de requisitos */}
+                {checklistResultado.map((item) => (
+                  <View key={item.id} style={styles.checklistItem}>
+                    <View style={styles.checklistItemIzq}>
+                      <MaterialCommunityIcons
+                        name={
+                          item.completado
+                            ? 'check-circle'
+                            : item.requerido
+                              ? 'alert-circle-outline'
+                              : 'information-outline'
+                        }
+                        size={20}
+                        color={
+                          item.completado
+                            ? Colors.accentSuccess
+                            : item.requerido
+                              ? Colors.accentDanger
+                              : Colors.textSecondary
+                        }
+                      />
+                      <View style={styles.checklistItemTextos}>
+                        <View style={styles.checklistItemTituloRow}>
+                          <Text style={[
+                            styles.checklistLabel,
+                            item.completado && styles.checklistLabelOk,
+                          ]}>
+                            {item.label}
+                          </Text>
+                          {!item.requerido && (
+                            <View style={styles.opcionalBadge}>
+                              <Text style={styles.opcionalBadgeTexto}>opcional</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[
+                          styles.checklistMensaje,
+                          item.completado && styles.checklistMensajeOk,
+                        ]}>
+                          {item.completado ? item.mensajeOk : item.mensajeFaltante}
+                        </Text>
+                      </View>
+                    </View>
+                    {!item.completado && (
+                      <TouchableOpacity
+                        style={[
+                          styles.checklistBotonIr,
+                          item.requerido && styles.checklistBotonIrPrimario,
+                        ]}
+                        onPress={item.accion}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.checklistBotonIrTexto,
+                          item.requerido && styles.checklistBotonIrTextoPrimario,
+                        ]}>
+                          {item.labelAccion}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+
+                {/* Información sobre opcionales no revisadas */}
+                {pendientesOpcionales.length > 0 && (
+                  <View style={styles.checklistInfoOpcional}>
+                    <MaterialCommunityIcons
+                      name="lightbulb-outline"
+                      size={15}
+                      color={Colors.textSecondary}
+                    />
+                    <Text style={styles.checklistInfoOpcionalTexto}>
+                      Las secciones opcionales se marcan automáticamente cuando las visitas, aunque no agregues datos.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Botón de calcular si está listo */}
+                {listoParaCalcular && (
+                  <TouchableOpacity
+                    style={styles.botonCalcularResultado}
+                    onPress={handleCalcular}
+                    activeOpacity={0.8}
+                    disabled={calculando}
+                  >
+                    {calculando ? (
+                      <ActivityIndicator size="small" color={Colors.textOnAccent} />
+                    ) : (
+                      <MaterialCommunityIcons name="calculator-variant" size={20} color={Colors.textOnAccent} />
+                    )}
+                    <Text style={styles.botonCalcularResultadoTexto}>
+                      {calculando ? 'Calculando...' : 'Calcular cuadre ahora'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </ScrollView>
+        </Animated.View>
       </KeyboardAvoidingView>
 
       {/* ── Modal de Confirmación ── */}
@@ -541,8 +791,12 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     marginTop: Spacing.xs,
+    minWidth: 100,
+    justifyContent: 'center',
   },
-
+  botonCalcularDeshabilitado: {
+    backgroundColor: Colors.textDisabled,
+  },
   botonCalcularTexto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.sm,
@@ -593,8 +847,6 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
   },
   contenidoPadding: {
     padding: Spacing.xl,
-    // Espacio extra al final para que el contenido no quede
-    // detras de la barra de navegacion flotante
     paddingBottom: 120,
   },
 
@@ -613,43 +865,142 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
     textAlign: 'center',
     lineHeight: 24,
   },
-    // ── Checklist ──
+
+  // ── Checklist inteligente ──
   checklistContainer: {
     backgroundColor: Colors.bgSurface,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     padding: Spacing.xl,
-    gap: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.divider,
+    gap: Spacing.md,
+  },
+  checklistHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+  },
+  checklistHeaderTextos: {
+    flex: 1,
+    gap: 2,
   },
   checklistTitulo: {
-    fontFamily: Typography.fontFamilySemiBold,
-    fontSize: Typography.size.md,
+    fontFamily: Typography.fontFamilyBold,
+    fontSize: Typography.size.lg,
     color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
+  },
+  checklistSubtitulo: {
+    fontFamily: Typography.fontFamily,
+    fontSize: Typography.size.sm,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  checklistSeparador: {
+    height: 1,
+    backgroundColor: Colors.divider,
   },
   checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  checklistItemIzq: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: Spacing.sm,
   },
-  checklistTexto: {
+  checklistItemTextos: {
+    flex: 1,
+    gap: 2,
+  },
+  checklistItemTituloRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    flexWrap: 'wrap',
+  },
+  checklistLabel: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.sm,
+    color: Colors.textPrimary,
+  },
+  checklistLabelOk: {
+    color: Colors.accentSuccess,
+  },
+  checklistMensaje: {
     fontFamily: Typography.fontFamily,
-    fontSize: Typography.size.md,
+    fontSize: Typography.size.xs,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+  },
+  checklistMensajeOk: {
+    color: Colors.accentSuccess,
+  },
+  opcionalBadge: {
+    backgroundColor: 'rgba(79,142,247,0.12)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(79,142,247,0.3)',
+  },
+  opcionalBadgeTexto: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: 9,
+    color: Colors.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  checklistBotonIr: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgElevated,
+  },
+  checklistBotonIrPrimario: {
+    borderColor: Colors.accentDanger,
+    backgroundColor: 'rgba(232,84,84,0.08)',
+  },
+  checklistBotonIrTexto: {
+    fontFamily: Typography.fontFamilySemiBold,
+    fontSize: Typography.size.xs,
     color: Colors.textSecondary,
   },
-  checklistCompletado: {
-    color: Colors.accentSuccess,
-    fontFamily: Typography.fontFamilySemiBold,
+  checklistBotonIrTextoPrimario: {
+    color: Colors.accentDanger,
   },
-  botonIrInventario: {
-    marginTop: Spacing.lg,
+  checklistInfoOpcional: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  checklistInfoOpcionalTexto: {
+    flex: 1,
+    fontFamily: Typography.fontFamily,
+    fontSize: Typography.size.xs,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+  },
+  botonCalcularResultado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
     backgroundColor: Colors.accent,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
-    alignItems: 'center',
+    marginTop: Spacing.sm,
   },
-  botonIrInventarioTexto: {
+  botonCalcularResultadoTexto: {
     fontFamily: Typography.fontFamilySemiBold,
     fontSize: Typography.size.md,
     color: Colors.textOnAccent,

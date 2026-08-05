@@ -1,5 +1,5 @@
 // src/presentation/hooks/useInventarioFinal.ts
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Producto } from '../../domain/entities/Producto';
 import { ItemInventarioTurnoInput } from '../../domain/entities/InventarioTurno';
 import { TurnoRepository } from '../../data/repositories/TurnoRepository';
@@ -27,6 +27,17 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
     productosToItems(productos)
   );
   const [cargando, setCargando] = useState(true);
+
+  // Clave estable derivada de los campos relevantes de los productos.
+  // Evita llamar a JSON.stringify en cada render (costoso con 60+ productos).
+  // Solo cambia cuando realmente cambia algo que afecte el inventario final.
+  const productosClave = useMemo(
+    () =>
+      productos
+        .map((p) => `${p.id}:${p.nombre}:${p.precio_costo}:${p.precio_venta}`)
+        .join('|'),
+    [productos]
+  );
 
   useEffect(() => {
     let cancelado = false;
@@ -68,28 +79,16 @@ export function useInventarioFinal(productos: Producto[], turnoId: number) {
     if (productos.length > 0 && turnoId > 0) {
       cargarDesdeDB();
     } else {
-      // No hay productos o turnoId aun, pero debemos quitar el loader
+      // No hay productos o turnoId aún, pero debemos quitar el loader
       setCargando(false);
     }
 
     return () => {
       cancelado = true;
     };
-  }, [
-    productos,
-    turnoId,
-    // Dependencia derivada del contenido de productos.
-    // Si algun producto cambia de id, nombre, precio_costo o precio_venta,
-    // el efecto se re-ejecuta y la lista de inventario final se actualiza.
-    JSON.stringify(
-      productos.map((p) => ({
-        id: p.id,
-        nombre: p.nombre,
-        precio_costo: p.precio_costo,
-        precio_venta: p.precio_venta,
-      }))
-    ),
-  ]);
+  // productosClave reemplaza JSON.stringify: misma semántica, sin serialización costosa en cada render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnoId, productosClave]);
 
   const actualizarCantidad = useCallback((productoId: number, cantidad: number) => {
     setItems((prev) =>

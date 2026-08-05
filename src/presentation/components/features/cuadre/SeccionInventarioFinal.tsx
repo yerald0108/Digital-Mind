@@ -1,5 +1,6 @@
 // src/presentation/components/features/cuadre/SeccionInventarioFinal.tsx
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { useCallback, memo } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ItemFinal } from '../../../../presentation/hooks/useInventarioFinal';
 import { ItemInventarioTurno } from '../../../../domain/entities/InventarioTurno';
@@ -17,6 +18,108 @@ interface SeccionInventarioFinalProps {
   guardando: boolean;
 }
 
+// Altura fija de cada card para que FlatList pueda usar getItemLayout
+// y evitar mediciones en tiempo de ejecución (mejora significativa con 60+ items).
+const CARD_BASE_HEIGHT = 106; // header + datosRow + padding + marginBottom
+const CARD_VENDIDO_EXTRA = 32; // altura adicional cuando se muestra la fila de vendidas
+const CARD_MARGIN = Spacing.sm;
+
+// ── Card individual extraída como componente memo ─────────────
+// Evita re-renders de cards que no cambiaron cuando el usuario
+// edita la cantidad de otro producto.
+interface ProductoCardProps {
+  item: ItemFinal;
+  index: number;
+  cantInicial: number;
+  cantEntradas: number;
+  onActualizarCantidad: (productoId: number, cantidad: number) => void;
+  Colors: ReturnType<typeof getColors>;
+  styles: ReturnType<typeof crearEstilos>;
+}
+
+const ProductoCard = memo(function ProductoCard({
+  item,
+  index,
+  cantInicial,
+  cantEntradas,
+  onActualizarCantidad,
+  Colors,
+  styles,
+}: ProductoCardProps) {
+  const disponible = cantInicial + cantEntradas;
+
+  return (
+    <View style={[styles.card, index % 2 === 0 && styles.cardAlterna]}>
+      {/* Encabezado del producto */}
+      <View style={styles.cardHeader}>
+        <View style={styles.numeroBadge}>
+          <Text style={styles.numeroTexto}>{index + 1}</Text>
+        </View>
+        <Text style={styles.nombre} numberOfLines={1}>
+          {item.producto_nombre}
+        </Text>
+        <Text style={styles.precioVenta}>
+          {formatMoneda(item.precio_venta)}
+        </Text>
+      </View>
+
+      {/* Datos del turno */}
+      <View style={styles.datosRow}>
+        <View style={styles.datoItem}>
+          <Text style={styles.datoLabel}>Inicial</Text>
+          <Text style={styles.datoValor}>{cantInicial}</Text>
+        </View>
+
+        <View style={styles.datoItem}>
+          <Text style={styles.datoLabel}>Entradas</Text>
+          <Text style={[styles.datoValor, cantEntradas > 0 && styles.datoEntrada]}>
+            {cantEntradas > 0 ? `+${cantEntradas}` : '0'}
+          </Text>
+        </View>
+
+        <View style={styles.datoItem}>
+          <Text style={styles.datoLabel}>Disponible</Text>
+          <Text style={styles.datoDisponible}>{disponible}</Text>
+        </View>
+
+        <View style={styles.separadorVertical} />
+
+        <View style={styles.datoItemFinal}>
+          <Text style={styles.datoLabel}>Cant. final</Text>
+          <TextInput
+            style={[styles.inputCantidad, item.cantidad > 0 && styles.inputActivo]}
+            value={item.cantidad === 0 ? '' : String(item.cantidad)}
+            onChangeText={(t) =>
+              onActualizarCantidad(item.producto_id, parseFloat(t) || 0)
+            }
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={Colors.textDisabled}
+            selectTextOnFocus
+          />
+        </View>
+      </View>
+
+      {/* Vendidas estimadas */}
+      {item.cantidad > 0 && (
+        <View style={styles.vendidoRow}>
+          <MaterialCommunityIcons
+            name="cart-outline"
+            size={12}
+            color={Colors.textSecondary}
+          />
+          <Text style={styles.vendidoTexto}>
+            Vendidas estimadas:{' '}
+            <Text style={styles.vendidoValor}>
+              {Math.max(0, disponible - item.cantidad)}
+            </Text>
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
 export function SeccionInventarioFinal({
   items,
   inventarioInicial,
@@ -27,6 +130,7 @@ export function SeccionInventarioFinal({
 }: SeccionInventarioFinalProps) {
   const { C: Colors } = useTheme();
   const styles = crearEstilos(Colors);
+
   if (items.length === 0) {
     return (
       <View style={styles.vacio}>
@@ -43,130 +147,34 @@ export function SeccionInventarioFinal({
     );
   }
 
-  // Helpers para buscar datos por producto
-  const getCantidadInicial = (productoId: number): number => {
-    return inventarioInicial.find((i) => i.producto_id === productoId)?.cantidad ?? 0;
-  };
-
-  const getCantidadEntradas = (productoId: number): number => {
-    return entradas
-      .filter((e) => e.producto_id === productoId)
-      .reduce((acc, e) => acc + e.cantidad, 0);
-  };
+  // Pre-calcular mapas para O(1) en lugar de O(n) por item dentro del render
+  const inicialMap = new Map(inventarioInicial.map((i) => [i.producto_id, i.cantidad]));
+  const entradasMap = new Map<number, number>();
+  for (const e of entradas) {
+    entradasMap.set(e.producto_id, (entradasMap.get(e.producto_id) ?? 0) + e.cantidad);
+  }
 
   const totalIngresado = items.reduce((acc, i) => acc + i.cantidad, 0);
 
-  return (
-    <View style={styles.container}>
+  // Header y footer de la FlatList definidos fuera del render para estabilidad
+  const ListHeader = (
+    <View>
       <Text style={styles.descripcion}>
         Realiza el conteo físico de cada producto e ingresa la cantidad
         que quedó al cierre del turno.
       </Text>
-
-      {/* Resumen */}
       <View style={styles.resumen}>
         <MaterialCommunityIcons name="counter" size={15} color={Colors.accent} />
         <Text style={styles.resumenTexto}>
           {items.length} productos · {totalIngresado} uds finales ingresadas
         </Text>
       </View>
+    </View>
+  );
 
-      {/* Lista de productos */}
-      {items.map((item, index) => {
-        const cantInicial = getCantidadInicial(item.producto_id);
-        const cantEntradas = getCantidadEntradas(item.producto_id);
-        const disponible = cantInicial + cantEntradas;
-
-        return (
-          <View
-            key={item.producto_id}
-            style={[styles.card, index % 2 === 0 && styles.cardAlterna]}
-          >
-            {/* Encabezado del producto */}
-            <View style={styles.cardHeader}>
-              <View style={styles.numeroBadge}>
-                <Text style={styles.numeroTexto}>{index + 1}</Text>
-              </View>
-              <Text style={styles.nombre} numberOfLines={1}>
-                {item.producto_nombre}
-              </Text>
-              <Text style={styles.precioVenta}>
-                {formatMoneda(item.precio_venta)}
-              </Text>
-            </View>
-
-            {/* Datos del turno */}
-            <View style={styles.datosRow}>
-              {/* Inicial */}
-              <View style={styles.datoItem}>
-                <Text style={styles.datoLabel}>Inicial</Text>
-                <Text style={styles.datoValor}>{cantInicial}</Text>
-              </View>
-
-              {/* Entradas */}
-              <View style={styles.datoItem}>
-                <Text style={styles.datoLabel}>Entradas</Text>
-                <Text style={[
-                  styles.datoValor,
-                  cantEntradas > 0 && styles.datoEntrada,
-                ]}>
-                  {cantEntradas > 0 ? `+${cantEntradas}` : '0'}
-                </Text>
-              </View>
-
-              {/* Disponible */}
-              <View style={styles.datoItem}>
-                <Text style={styles.datoLabel}>Disponible</Text>
-                <Text style={styles.datoDisponible}>{disponible}</Text>
-              </View>
-
-              {/* Separador visual */}
-              <View style={styles.separadorVertical} />
-
-              {/* Input cantidad final */}
-              <View style={styles.datoItemFinal}>
-                <Text style={styles.datoLabel}>Cant. final</Text>
-                <TextInput
-                  style={[
-                    styles.inputCantidad,
-                    item.cantidad > 0 && styles.inputActivo,
-                  ]}
-                  value={item.cantidad === 0 ? '' : String(item.cantidad)}
-                  onChangeText={(t) =>
-                    onActualizarCantidad(item.producto_id, parseFloat(t) || 0)
-                  }
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={Colors.textDisabled}
-                  selectTextOnFocus
-                />
-              </View>
-            </View>
-
-            {/* Vendidas estimadas */}
-            {item.cantidad > 0 && (
-              <View style={styles.vendidoRow}>
-                <MaterialCommunityIcons
-                  name="cart-outline"
-                  size={12}
-                  color={Colors.textSecondary}
-                />
-                <Text style={styles.vendidoTexto}>
-                  Vendidas estimadas:{' '}
-                  <Text style={styles.vendidoValor}>
-                    {Math.max(0, disponible - item.cantidad)}
-                  </Text>
-                </Text>
-              </View>
-            )}
-          </View>
-        );
-      })}
-
-      {/* Espaciador para que el teclado no tape el último campo al hacer foco */}
+  const ListFooter = (
+    <View>
       <View style={styles.espaciadorTeclado} />
-
-      {/* Botón guardar */}
       <TouchableOpacity
         style={[styles.botonGuardar, guardando && styles.botonGuardando]}
         onPress={onGuardar}
@@ -183,6 +191,47 @@ export function SeccionInventarioFinal({
         </Text>
       </TouchableOpacity>
     </View>
+  );
+
+  // renderItem estable con useCallback no aplica aquí porque SeccionInventarioFinal
+  // no es memo — usamos función inline pero la card interna sí es memo.
+  const renderItem = ({ item, index }: { item: ItemFinal; index: number }) => (
+    <ProductoCard
+      item={item}
+      index={index}
+      cantInicial={inicialMap.get(item.producto_id) ?? 0}
+      cantEntradas={entradasMap.get(item.producto_id) ?? 0}
+      onActualizarCantidad={onActualizarCantidad}
+      Colors={Colors}
+      styles={styles}
+    />
+  );
+
+  // getItemLayout permite a FlatList saltar directamente a cualquier posición
+  // sin medir — crítico para rendimiento con 60+ items.
+  const getItemLayout = (_: unknown, index: number) => {
+    const height = CARD_BASE_HEIGHT + (items[index]?.cantidad > 0 ? CARD_VENDIDO_EXTRA : 0) + CARD_MARGIN;
+    return { length: height, offset: height * index, index };
+  };
+
+  return (
+    <FlatList
+      data={items}
+      keyExtractor={(item) => String(item.producto_id)}
+      renderItem={renderItem}
+      ListHeaderComponent={ListHeader}
+      ListFooterComponent={ListFooter}
+      getItemLayout={getItemLayout}
+      // Renderizar 10 items por lote para arranque rápido
+      initialNumToRender={10}
+      maxToRenderPerBatch={8}
+      windowSize={5}
+      // Desactiva el scroll de la FlatList — el scroll lo maneja el ScrollView padre
+      scrollEnabled={false}
+      // Evitar parpadeo al actualizar cantidades
+      removeClippedSubviews={false}
+      keyboardShouldPersistTaps="handled"
+    />
   );
 }
 
@@ -265,8 +314,8 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
     flex: 1,
   },
   datoItemFinal: {
-    alignItems: 'center',
-    flex: 1.2,
+    alignItems: 'stretch',
+    flex: 1.5,
   },
   datoLabel: {
     fontFamily: Typography.fontFamily,
@@ -296,7 +345,7 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
   },
   inputCantidad: {
     width: '100%',
-    height: 40,
+    height: 44,
     backgroundColor: Colors.bgPrimary,
     borderRadius: Radius.sm,
     borderWidth: 1,
@@ -305,6 +354,12 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
     fontSize: Typography.size.lg,
     color: Colors.textPrimary,
     textAlign: 'center',
+    // Padding horizontal para que el texto no quede pegado al borde
+    paddingHorizontal: Spacing.sm,
+    // Android: quita el padding interno que el sistema agrega a los TextInput
+    // y que hace que los números se vean cortados verticalmente
+    paddingVertical: 0,
+    includeFontPadding: false,
   },
   inputActivo: {
     borderColor: Colors.accentSuccess,

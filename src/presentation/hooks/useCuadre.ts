@@ -23,12 +23,15 @@ export function useCuadre(): UseCuadreReturn {
   const [resultado, setResultado] = useState<ResultadoCuadre | null>(null);
   const [cargando, setCargando] = useState(false);
   const datosRef = useRef<DatosCuadre | null>(null);
+  // Rastrea el turnoId del ultimo cargarDatos para detectar cambio de turno.
+  // Solo se resetea el resultado cuando el turno cambia, no en cada refocus.
+  const turnoIdCargadoRef = useRef<number | null>(null);
 
   const cargarDatos = useCallback(async (turnoId: number) => {
     try {
       if (!datosRef.current) setCargando(true);
 
-      // Queries secuenciales — expo-sqlite SDK 54 no soporta múltiples
+      // Queries secuenciales - expo-sqlite SDK 54 no soporta multiples
       // queries concurrentes sobre la misma instancia de DB (Promise.all
       // causa "2nd argument cannot be cast to NativeStatement").
       const inventarioInicial  = await TurnoRepository.getInventario(turnoId, 'inicial');
@@ -57,9 +60,14 @@ export function useCuadre(): UseCuadreReturn {
 
       datosRef.current = nuevosDatos;
       setDatos(nuevosDatos);
-      // El resultado solo se calcula cuando el usuario presiona "Calcular".
-      // No se dispara automáticamente al cargar datos para que la pantalla
-      // Resultado no aparezca sin que el usuario haya completado los pasos.
+
+      // Resetear el resultado SOLO cuando el turno cambia (turno nuevo = resultado viejo invalido).
+      // Si el usuario navega a otra pantalla y vuelve al mismo turno, el resultado calculado
+      // debe permanecer visible - no borrarlo en cada refocus.
+      if (turnoIdCargadoRef.current !== turnoId) {
+        turnoIdCargadoRef.current = turnoId;
+        setResultado(null);
+      }
     } catch (e) {
       console.error('[useCuadre] cargarDatos:', e);
     } finally {

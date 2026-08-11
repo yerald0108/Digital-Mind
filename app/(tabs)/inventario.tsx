@@ -85,6 +85,20 @@ export default function InventarioScreen() {
     }
   };
 
+  const handleEliminarMultiple = async (ids: number[]) => {
+    try {
+      for (const id of ids) {
+        await eliminarProducto(id);
+      }
+      toast.exito(
+        `${ids.length} producto${ids.length !== 1 ? 's' : ''} eliminado${ids.length !== 1 ? 's' : ''}`,
+        'Los productos fueron eliminados del inventario'
+      );
+    } catch {
+      toast.error('Error al eliminar', 'No se pudieron eliminar los productos');
+    }
+  };
+
   const handleReordenar = async (nuevosProductos: Producto[]) => {
     try {
       await reordenarProductos(nuevosProductos);
@@ -159,12 +173,12 @@ export default function InventarioScreen() {
           {!hayQuery && (
             <View style={styles.hintArrastre}>
               <MaterialCommunityIcons
-                name="drag-vertical"
+                name="gesture-tap-hold"
                 size={14}
                 color={C.textDisabled}
               />
               <Text style={[styles.hintTexto, { color: C.textDisabled }]}>
-                Mantén y arrastra para reordenar
+                Mantén presionado para seleccionar · ↑↓ para reordenar
               </Text>
             </View>
           )}
@@ -172,6 +186,7 @@ export default function InventarioScreen() {
             productos={resultados}
             onEditar={handleEditar}
             onEliminar={handleEliminar}
+            onEliminarMultiple={handleEliminarMultiple}
             onReordenar={handleReordenar}
           />
         </>

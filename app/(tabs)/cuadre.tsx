@@ -167,7 +167,8 @@ export default function CuadreScreen() {
 
   const { items, cargando: cargandoInventario, actualizarCantidad, toInputArray } = useInventarioFinal(
     productos,
-    turnoId ?? 0
+    turnoId ?? 0,
+    datos?.entradas ?? [],
   );
 
   const [pendienteEliminar, setPendienteEliminar] = useState<{

@@ -87,8 +87,8 @@ const ProductoCard = memo(function ProductoCard({
         <View style={styles.datoItemFinal}>
           <Text style={styles.datoLabel}>Cant. final</Text>
           <TextInput
-            style={[styles.inputCantidad, item.cantidad > 0 && styles.inputActivo]}
-            value={item.cantidad === 0 ? '' : String(item.cantidad)}
+            style={[styles.inputCantidad, item.tocado && styles.inputActivo]}
+            value={item.tocado ? String(item.cantidad) : (item.cantidad === 0 ? '' : String(item.cantidad))}
             onChangeText={(t) =>
               onActualizarCantidad(item.producto_id, parseFloat(t) || 0)
             }
@@ -100,8 +100,8 @@ const ProductoCard = memo(function ProductoCard({
         </View>
       </View>
 
-      {/* Vendidas estimadas */}
-      {item.cantidad > 0 && (
+      {/* Vendidas estimadas: mostrar si el usuario editó la cantidad (incluso si es 0) */}
+      {item.tocado && (
         <View style={styles.vendidoRow}>
           <MaterialCommunityIcons
             name="cart-outline"

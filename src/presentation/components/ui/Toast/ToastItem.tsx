@@ -14,7 +14,7 @@ import { Typography, Spacing, Radius } from 'src/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TOAST_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
-const DURACION_DEFAULT = 3000;
+const DURACION_DEFAULT = 2000;
 
 interface VarianteVisual {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -86,12 +86,12 @@ export function ToastItem({ toast, onDismiss }: ToastItemProps) {
     Animated.parallel([
       Animated.timing(translateY, {
         toValue: -100,
-        duration: 220,
+        duration: 150,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 180,
+        duration: 120,
         useNativeDriver: true,
       }),
     ]).start(() => onDismiss(toast.id));

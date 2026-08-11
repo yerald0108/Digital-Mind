@@ -347,17 +347,4 @@ export const MovimientoRepository = {
   // NO elimina inventario_turno: los snapshots inicial/final
   // se conservan para auditoría y posibles recálculos futuros.
 
-  async eliminarMovimientosDelTurno(turnoId: number): Promise<void> {
-    const db = getDatabase();
-      await db.withTransactionAsync(async () => {
-      await db.runAsync('DELETE FROM entradas WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM salidas_familiares WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM cambios_precio WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM mermas WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM transferencias WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM gastos WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM caja_por_dia WHERE turno_id = ?', [turnoId]);
-      await db.runAsync('DELETE FROM registros_usd WHERE turno_id = ?', [turnoId]);
-    });
-  },
 };

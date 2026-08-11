@@ -1,5 +1,5 @@
 // src/presentation/components/features/cuadre/SeccionInventarioFinal.tsx
-import { useCallback, memo } from 'react';
+import { memo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ItemFinal } from '../../../../presentation/hooks/useInventarioFinal';

@@ -57,22 +57,4 @@ export const HistorialRepository = {
     await db.runAsync('DELETE FROM historial_turnos WHERE id = ?', [id]);
   },
 
-  /**
-   * Elimina un registro del historial usando el turno_id.
-   * Se usa durante el rollback del cierre de turno,
-   * cuando ya se guardo el historial pero algo fallo despues.
-   */
-  async eliminarPorTurnoId(turnoId: number): Promise<void> {
-    const db = getDatabase();
-    await db.runAsync('DELETE FROM historial_turnos WHERE turno_id = ?', [turnoId]);
-  },
-
-  async existeParaTurno(turnoId: number): Promise<boolean> {
-    const db = getDatabase();
-    const result = await db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) as count FROM historial_turnos WHERE turno_id = ?',
-      [turnoId]
-    );
-    return (result?.count ?? 0) > 0;
-  },
 };

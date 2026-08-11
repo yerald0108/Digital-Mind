@@ -21,7 +21,7 @@ import { Producto } from '../../src/domain/entities/Producto';
 import { Typography, Spacing } from '../../src/constants/theme';
 
 export default function InventarioScreen() {
-  const { C, T, S, accentLine } = useTheme();
+  const { C, accentLine } = useTheme();
   const {
     productos,
     cargando,
@@ -127,6 +127,9 @@ export default function InventarioScreen() {
           style={[styles.botonAgregar, { backgroundColor: C.accent }]}
           onPress={handleAgregar}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Agregar producto"
+          hitSlop={8}
         >
           <MaterialCommunityIcons name="plus" size={22} color={C.textOnAccent} />
         </TouchableOpacity>

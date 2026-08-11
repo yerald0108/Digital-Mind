@@ -56,9 +56,6 @@ export function getColors(modo: 'oscuro' | 'claro' = 'oscuro') {
   return modo === 'claro' ? PaletaLight : PaletaDark;
 }
 
-// Export estático para compatibilidad (usa dark por defecto)
-export const Colors = PaletaDark;
-
 // ── Tipografía ────────────────────────────────────────────────
 export const Typography = {
   fontFamily: 'Inter_400Regular',
@@ -123,15 +120,6 @@ export const Shadows = {
     shadowRadius: 16,
     elevation: 12,
   },
-} as const;
-
-export const AccentLine = {
-  height: 2,
-  backgroundColor: PaletaDark.accent,
-  width: 36,
-  borderRadius: Radius.full,
-  marginTop: Spacing.xs,
-  marginBottom: Spacing.lg,
 } as const;
 
 // Hook para usar en componentes

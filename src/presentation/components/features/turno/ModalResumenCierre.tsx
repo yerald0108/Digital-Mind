@@ -20,6 +20,7 @@ import { formatMoneda } from '../../../../utils/formatters';
 import { getColors, Typography, Spacing, Radius, Shadows } from '../../../../constants/theme';
 import { formatDias, formatFechaHora } from '../../../../utils/formatters';
 import { useTheme } from '../../../hooks/useTheme';
+import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 
 type EstadoItem = 'ok' | 'advertencia' | 'pendiente';
 
@@ -36,6 +37,7 @@ interface ResumenTurno {
   diferencia: number | null;
   estadoCuadre: 'exacto' | 'sobrante' | 'faltante' | null;
   totalVentas: number | null;
+  alertas: string[];
 }
 
 interface ModalResumenCierreProps {
@@ -67,6 +69,7 @@ export function ModalResumenCierre({
 
   const [cargando, setCargando] = useState(false);
   const [resumen, setResumen] = useState<ResumenTurno | null>(null);
+  const [confirmarCierreInconsistente, setConfirmarCierreInconsistente] = useState(false);
 
   // ── Animaciones coordinadas: overlay fade + sheet slide ──────
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -124,34 +127,30 @@ export function ModalResumenCierre({
       try {
         const { totalEntradas, totalSalidas, totalMermas, totalCambios } = contadoresRef.current;
 
-        const [
-          inventarioInicial,
-          inventarioFinal,
-          entradas,
-          salidasFamiliares,
-          cambiosPrecio,
-          mermas,
-          transferencias,
-          gastos,
-          cajaPorDia,
-          registrosUSD,
-        ] = await Promise.all([
-          TurnoRepository.getInventario(turno.id, 'inicial'),
-          TurnoRepository.getInventario(turno.id, 'final'),
-          MovimientoRepository.getEntradas(turno.id),
-          MovimientoRepository.getSalidasFamiliares(turno.id),
-          MovimientoRepository.getCambiosPrecio(turno.id),
-          MovimientoRepository.getMermas(turno.id),
-          MovimientoRepository.getTransferencias(turno.id),
-          MovimientoRepository.getGastos(turno.id),
-          MovimientoRepository.getCajaPorDia(turno.id),
-          MovimientoRepository.getRegistrosUSD(turno.id),
-        ]);
+        // Las consultas se ejecutan en secuencia por compatibilidad con SQLite SDK 54.
+        const inventarioInicial = await TurnoRepository.getInventario(turno.id, 'inicial');
+        const inventarioFinal = await TurnoRepository.getInventario(turno.id, 'final');
+        const entradas = await MovimientoRepository.getEntradas(turno.id);
+        const salidasFamiliares = await MovimientoRepository.getSalidasFamiliares(turno.id);
+        const cambiosPrecio = await MovimientoRepository.getCambiosPrecio(turno.id);
+        const mermas = await MovimientoRepository.getMermas(turno.id);
+        const transferencias = await MovimientoRepository.getTransferencias(turno.id);
+        const gastos = await MovimientoRepository.getGastos(turno.id);
+        const cajaPorDia = await MovimientoRepository.getCajaPorDia(turno.id);
+        const registrosUSD = await MovimientoRepository.getRegistrosUSD(turno.id);
 
         if (cancelado) return;
 
-        const inventarioFinalCompleto = inventarioFinal.length > 0;
-        const diasConCaja = new Set(cajaPorDia.map((c) => c.dia_numero)).size;
+        const idsEsperados = new Set([
+          ...inventarioInicial.map((item) => item.producto_id),
+          ...entradas.map((item) => item.producto_id),
+        ]);
+        const idsFinales = new Set(inventarioFinal.map((item) => item.producto_id));
+        const inventarioFinalCompleto =
+          idsEsperados.size > 0 && [...idsEsperados].every((id) => idsFinales.has(id));
+        const diasConCaja = new Set(
+          cajaPorDia.filter((c) => c.monto_efectivo > 0).map((c) => c.dia_numero)
+        ).size;
         const cajaCompleta = diasConCaja >= turno.dias_duracion;
         const cuadreCalculado = inventarioFinalCompleto && cajaCompleta;
 
@@ -159,6 +158,7 @@ export function ModalResumenCierre({
         let diferencia: number | null = null;
         let estadoCuadre: 'exacto' | 'sobrante' | 'faltante' | null = null;
         let totalVentas: number | null = null;
+        let alertas: string[] = [];
 
         if (inventarioFinalCompleto) {
           const resultado = calcularCuadre({
@@ -169,6 +169,16 @@ export function ModalResumenCierre({
           diferencia = resultado.diferencia;
           estadoCuadre = resultado.estado;
           totalVentas = resultado.total_ventas_esperado;
+          alertas = resultado.inconsistencias_inventario.map(
+            (item) => `${item.producto_nombre}: el conteo final supera el disponible por ${item.exceso}.`
+          );
+        }
+
+        if (!inventarioFinalCompleto) {
+          alertas.unshift('El inventario final no está completo.');
+        }
+        if (!cajaCompleta) {
+          alertas.unshift('Falta registrar efectivo mayor que cero para uno o más días.');
         }
 
         setResumen({
@@ -183,6 +193,7 @@ export function ModalResumenCierre({
           diferencia,
           estadoCuadre,
           totalVentas,
+          alertas,
         });
       } catch (e) {
         console.error('[ModalResumenCierre] cargar:', e);
@@ -200,6 +211,7 @@ export function ModalResumenCierre({
             diferencia: null,
             estadoCuadre: null,
             totalVentas: null,
+            alertas: ['No se pudo verificar el estado del turno.'],
           });
         }
       } finally {
@@ -215,6 +227,14 @@ export function ModalResumenCierre({
   const hayAlgosPendientesCriticos = resumen
     ? !resumen.inventarioFinalCompleto || !resumen.cajaCompleta
     : false;
+  const hayInconsistencias = (resumen?.alertas.length ?? 0) > 0;
+  const solicitarCierre = () => {
+    if (hayInconsistencias) {
+      setConfirmarCierreInconsistente(true);
+      return;
+    }
+    onConfirmar();
+  };
 
   return (
     <RNModal
@@ -263,6 +283,9 @@ export function ModalResumenCierre({
             onPress={onCancelar}
             style={styles.botonClose}
             disabled={cerrando}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar resumen del turno"
+            hitSlop={10}
           >
             <MaterialCommunityIcons name="close" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
@@ -471,6 +494,23 @@ export function ModalResumenCierre({
                   </Text>
                 </View>
               )}
+
+              {resumen.alertas.length > 0 && (
+                <View style={[styles.alertas, {
+                  backgroundColor: `${Colors.accentDanger}12`,
+                  borderColor: `${Colors.accentDanger}40`,
+                }]}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.accentDanger} />
+                  <View style={styles.alertasTextos}>
+                    <Text style={[styles.alertasTitulo, { color: Colors.accentDanger }]}>Datos por revisar</Text>
+                    {resumen.alertas.map((alerta) => (
+                      <Text key={alerta} style={[styles.alertasTexto, { color: Colors.textSecondary }]}>
+                        • {alerta}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              )}
             </>
           ) : null}
         </ScrollView>
@@ -482,6 +522,8 @@ export function ModalResumenCierre({
             onPress={onCancelar}
             disabled={cerrando}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Volver a revisar el turno"
           >
             <Text style={[styles.botonCancelarTexto, { color: Colors.textSecondary }]}>
               Volver
@@ -496,9 +538,11 @@ export function ModalResumenCierre({
                 : { backgroundColor: Colors.accentDanger },
               cerrando && styles.botonDeshabilitado,
             ]}
-            onPress={onConfirmar}
+            onPress={solicitarCierre}
             disabled={cerrando || cargando}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={hayInconsistencias ? 'Revisar confirmación de cierre' : 'Confirmar cierre del turno'}
           >
             {cerrando ? (
               <ActivityIndicator size="small" color={Colors.textOnAccent} />
@@ -512,7 +556,7 @@ export function ModalResumenCierre({
             <Text style={[styles.botonConfirmarTexto, { color: Colors.textOnAccent }]}>
               {cerrando
                 ? 'Cerrando...'
-                : hayAlgosPendientesCriticos
+                : hayInconsistencias
                   ? 'Cerrar igual'
                   : 'Confirmar cierre'}
             </Text>
@@ -520,6 +564,19 @@ export function ModalResumenCierre({
         </View>
 
       </Animated.View>
+      <ModalConfirmacion
+        visible={confirmarCierreInconsistente}
+        titulo="Cerrar con datos por revisar"
+        mensaje={resumen?.alertas.join('\n') ?? 'Hay datos pendientes de revisar.'}
+        labelConfirmar="Cerrar de todos modos"
+        labelCancelar="Volver a revisar"
+        variante="warning"
+        onConfirmar={() => {
+          setConfirmarCierreInconsistente(false);
+          onConfirmar();
+        }}
+        onCancelar={() => setConfirmarCierreInconsistente(false)}
+      />
     </RNModal>
   );
 }
@@ -536,12 +593,6 @@ function FilaMovimiento({
   opcional?: boolean;
   Colors: ReturnType<typeof getColors>;
 }) {
-  const colorEstado = estado === 'ok'
-    ? Colors.accentSuccess
-    : opcional
-      ? Colors.textDisabled
-      : Colors.accentDanger;
-
   return (
     <View style={filaStyles.fila}>
       <MaterialCommunityIcons name={icono} size={16} color={Colors.textSecondary} />
@@ -770,6 +821,28 @@ function crearEstilos(Colors: ReturnType<typeof getColors>) {
       fontSize: Typography.size.xs,
       flex: 1,
       lineHeight: 18,
+    },
+    alertas: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: Spacing.sm,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      padding: Spacing.md,
+      marginTop: Spacing.md,
+    },
+    alertasTextos: {
+      flex: 1,
+      gap: 3,
+    },
+    alertasTitulo: {
+      fontFamily: Typography.fontFamilySemiBold,
+      fontSize: Typography.size.sm,
+    },
+    alertasTexto: {
+      fontFamily: Typography.fontFamily,
+      fontSize: Typography.size.xs,
+      lineHeight: 17,
     },
     // Botones
     acciones: {

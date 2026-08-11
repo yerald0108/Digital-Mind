@@ -25,6 +25,7 @@ export interface ResultadoProducto {
   cantidad_salidas_familiares: number;
   cantidad_mermas: number;
   cantidad_final: number;
+  cantidad_vendida_teorica: number;
   cantidad_vendida: number;
   dinero_aportado: number;
   tramos: TramoPrecio[];
@@ -38,6 +39,7 @@ export interface TramoPrecio {
 
 export interface ResultadoCuadre {
   resultados_productos: ResultadoProducto[];
+  inconsistencias_inventario: InconsistenciaInventario[];
 
   // ── Dinero esperado (de las ventas) ──
   total_ventas_esperado: number;
@@ -135,64 +137,60 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
     const itemFinal = inventarioFinal.find((f) => f.producto_id === pid);
     const cantidad_final = itemFinal?.cantidad ?? 0;
 
-    // Vendidas = inicial + entradas - salidas familiares - mermas - final
-    const cantidad_vendida = Math.max(
-      0,
-      cantidad_inicial + cantidad_entradas - cantidad_salidas_familiares - cantidad_mermas - cantidad_final
-    );
+    // Conservamos el cálculo teórico para advertir conteos imposibles.
+    const cantidad_vendida_teorica =
+      cantidad_inicial + cantidad_entradas - cantidad_salidas_familiares - cantidad_mermas - cantidad_final;
+    const cantidad_vendida = Math.max(0, cantidad_vendida_teorica);
 
     // ── Tramos de precio ──
     const tramos: TramoPrecio[] = [];
-    let vendidaAcumulada = 0;
+    const movimientosStock = [
+      ...entradas
+        .filter((entrada) => entrada.producto_id === pid)
+        .map((entrada) => ({ fecha: entrada.fecha, delta: entrada.cantidad })),
+      ...salidasFamiliares
+        .filter((salida) => salida.producto_id === pid)
+        .map((salida) => ({ fecha: salida.fecha, delta: -salida.cantidad })),
+      ...mermas
+        .filter((merma) => merma.producto_id === pid)
+        .map((merma) => ({ fecha: merma.fecha, delta: -merma.cantidad })),
+    ].sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-    if (cambiosDelProducto.length === 0) {
+    const agregarTramo = (precio: number, cantidad: number) => {
+      if (cantidad <= 0) return;
       tramos.push({
-        precio_venta: precio_venta_inicial,
-        cantidad_vendida_en_tramo: cantidad_vendida,
-        subtotal: redondear(cantidad_vendida * precio_venta_inicial),
+        precio_venta: precio,
+        cantidad_vendida_en_tramo: cantidad,
+        subtotal: redondear(cantidad * precio),
       });
-    } else {
-      const primerCambio = cambiosDelProducto[0];
-      const cantidadDisponible = cantidad_inicial + cantidad_entradas;
+    };
 
-      const vendidaAntesPrimerCambio = Math.max(
-        0,
-        cantidadDisponible - primerCambio.cantidad_existente - cantidad_salidas_familiares - cantidad_mermas
-      );
+    let stockEnTramo = cantidad_inicial;
+    let precioActual = precio_venta_inicial;
+    let indiceMovimiento = 0;
 
-      if (vendidaAntesPrimerCambio > 0) {
-        tramos.push({
-          precio_venta: precio_venta_inicial,
-          cantidad_vendida_en_tramo: vendidaAntesPrimerCambio,
-          subtotal: redondear(vendidaAntesPrimerCambio * precio_venta_inicial),
-        });
-        vendidaAcumulada += vendidaAntesPrimerCambio;
+    const aplicarMovimientosHasta = (fecha: string) => {
+      while (
+        indiceMovimiento < movimientosStock.length &&
+        movimientosStock[indiceMovimiento].fecha <= fecha
+      ) {
+        stockEnTramo += movimientosStock[indiceMovimiento].delta;
+        indiceMovimiento += 1;
       }
+    };
 
-      for (let i = 0; i < cambiosDelProducto.length; i++) {
-        const cambioActual = cambiosDelProducto[i];
-        const cambioSiguiente = cambiosDelProducto[i + 1];
-
-        let vendidaEnEsteTramo: number;
-        if (cambioSiguiente) {
-          vendidaEnEsteTramo = Math.max(
-            0,
-            cambioActual.cantidad_existente - cambioSiguiente.cantidad_existente
-          );
-        } else {
-          vendidaEnEsteTramo = Math.max(0, cantidad_vendida - vendidaAcumulada);
-        }
-
-        if (vendidaEnEsteTramo > 0) {
-          tramos.push({
-            precio_venta: cambioActual.precio_nuevo,
-            cantidad_vendida_en_tramo: vendidaEnEsteTramo,
-            subtotal: redondear(vendidaEnEsteTramo * cambioActual.precio_nuevo),
-          });
-          vendidaAcumulada += vendidaEnEsteTramo;
-        }
-      }
+    for (const cambio of cambiosDelProducto) {
+      aplicarMovimientosHasta(cambio.fecha);
+      agregarTramo(precioActual, Math.max(0, stockEnTramo - cambio.cantidad_existente));
+      stockEnTramo = cambio.cantidad_existente;
+      precioActual = cambio.precio_nuevo;
     }
+
+    while (indiceMovimiento < movimientosStock.length) {
+      stockEnTramo += movimientosStock[indiceMovimiento].delta;
+      indiceMovimiento += 1;
+    }
+    agregarTramo(precioActual, Math.max(0, stockEnTramo - cantidad_final));
 
     const dinero_aportado = redondear(tramos.reduce((acc, t) => acc + t.subtotal, 0));
 
@@ -204,11 +202,26 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
       cantidad_salidas_familiares,
       cantidad_mermas,
       cantidad_final,
+      cantidad_vendida_teorica,
       cantidad_vendida,
       dinero_aportado,
       tramos,
     };
   });
+
+  const inconsistencias_inventario = resultados_productos
+    .filter((resultado) => resultado.cantidad_vendida_teorica < 0)
+    .map((resultado) => ({
+      producto_id: resultado.producto_id,
+      producto_nombre: resultado.producto_nombre,
+      disponible:
+        resultado.cantidad_inicial +
+        resultado.cantidad_entradas -
+        resultado.cantidad_salidas_familiares -
+        resultado.cantidad_mermas,
+      cantidad_final: resultado.cantidad_final,
+      exceso: Math.abs(resultado.cantidad_vendida_teorica),
+    }));
 
   // ── Totales esperados (ventas) ────────────────────────────
   const total_ventas_esperado = redondear(
@@ -264,6 +277,7 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
 
   return {
     resultados_productos,
+    inconsistencias_inventario,
     total_ventas_esperado,
     total_gastos,
     total_esperado,
@@ -281,4 +295,12 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
 
 function redondear(valor: number): number {
   return Math.round(valor * 100) / 100;
+}
+
+export interface InconsistenciaInventario {
+  producto_id: number;
+  producto_nombre: string;
+  disponible: number;
+  cantidad_final: number;
+  exceso: number;
 }

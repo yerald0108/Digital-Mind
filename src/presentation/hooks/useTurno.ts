@@ -5,7 +5,6 @@ import { ItemInventarioTurnoInput } from '../../domain/entities/InventarioTurno'
 import { TurnoRepository } from '../../data/repositories/TurnoRepository';
 import { ProductoRepository } from '../../data/repositories/ProductoRepository';
 import { MovimientoRepository } from '../../data/repositories/MovimientoRepository';
-import { HistorialRepository } from '../../data/repositories/HistorialRepository';
 import { calcularCuadre, DatosCuadre } from '../../domain/usecases/calcularCuadre';
 import { useProductosStore } from '../stores/productosStore';
 
@@ -68,48 +67,18 @@ export function useTurno(): UseTurnoReturn {
 
     setCerrando(true);
 
-    /*
-     * ROLLBACK MANUAL
-     * Se ejecutan los pasos secuencialmente fuera de una transaccion.
-     * Si algo falla a mitad del proceso, se revierte lo que ya se hizo
-     * usando las banderas de cada paso completado.
-     */
-    let turnoCerrado = false;
-    let historialGuardado = false;
-    let inventarioActualizado = false;
-    let movimientosEliminados = false;
-
     try {
-      // PASO 1: Marcar el turno como cerrado en la base de datos
-      await TurnoRepository.cerrar(turno.id);
-      turnoCerrado = true;
-      console.log('[useTurno] Paso 1/5 completado: Turno cerrado');
-
-      // PASO 2: Leer todos los datos del turno antes de limpiar
-      const [
-        inventarioInicial,
-        inventarioFinal,
-        entradas,
-        salidasFamiliares,
-        cambiosPrecio,
-        mermas,
-        transferencias,
-        gastos,
-        cajaPorDia,
-        registrosUSD,
-      ] = await Promise.all([
-        TurnoRepository.getInventario(turno.id, 'inicial'),
-        TurnoRepository.getInventario(turno.id, 'final'),
-        MovimientoRepository.getEntradas(turno.id),
-        MovimientoRepository.getSalidasFamiliares(turno.id),
-        MovimientoRepository.getCambiosPrecio(turno.id),
-        MovimientoRepository.getMermas(turno.id),
-        MovimientoRepository.getTransferencias(turno.id),
-        MovimientoRepository.getGastos(turno.id),
-        MovimientoRepository.getCajaPorDia(turno.id),
-        MovimientoRepository.getRegistrosUSD(turno.id),
-      ]);
-      console.log('[useTurno] Paso 2/5 completado: Datos leidos');
+      // SQLite de Expo SDK 54 requiere ejecutar estas consultas en secuencia.
+      const inventarioInicial = await TurnoRepository.getInventario(turno.id, 'inicial');
+      const inventarioFinal = await TurnoRepository.getInventario(turno.id, 'final');
+      const entradas = await MovimientoRepository.getEntradas(turno.id);
+      const salidasFamiliares = await MovimientoRepository.getSalidasFamiliares(turno.id);
+      const cambiosPrecio = await MovimientoRepository.getCambiosPrecio(turno.id);
+      const mermas = await MovimientoRepository.getMermas(turno.id);
+      const transferencias = await MovimientoRepository.getTransferencias(turno.id);
+      const gastos = await MovimientoRepository.getGastos(turno.id);
+      const cajaPorDia = await MovimientoRepository.getCajaPorDia(turno.id);
+      const registrosUSD = await MovimientoRepository.getRegistrosUSD(turno.id);
 
       // PASO 3: Calcular el cuadre y guardar el historial
       const datos: DatosCuadre = {
@@ -125,17 +94,25 @@ export function useTurno(): UseTurnoReturn {
         registrosUSD,
       };
 
-      const resultado =
-        inventarioFinal.length > 0 ? calcularCuadre(datos) : null;
+      const resultado = inventarioFinal.length > 0 ? calcularCuadre(datos) : null;
+      const preciosFinales = Array.from(
+        cambiosPrecio
+          .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id)
+          .reduce((porProducto, cambio) => {
+            porProducto.set(cambio.producto_id, cambio.precio_nuevo);
+            return porProducto;
+          }, new Map<number, number>())
+          .entries()
+      ).map(([productoId, precioVenta]) => ({ productoId, precioVenta }));
 
-      const yaExiste = await HistorialRepository.existeParaTurno(turno.id);
-      if (!yaExiste) {
-        const turnoCerradoData = await TurnoRepository.getById(turno.id);
-        await HistorialRepository.guardar({
+      await TurnoRepository.cerrarConsolidado({
+        turnoId: turno.id,
+        inventarioFinal,
+        preciosFinales,
+        historial: {
           turno_id: turno.id,
           fecha_apertura: turno.fecha_apertura,
-          fecha_cierre:
-            turnoCerradoData?.fecha_cierre ?? new Date().toISOString(),
+          fecha_cierre: new Date().toISOString(),
           dias_duracion: turno.dias_duracion,
           total_ventas: resultado?.total_ventas_esperado ?? 0,
           total_transferencias: resultado?.total_transferencias ?? 0,
@@ -149,95 +126,20 @@ export function useTurno(): UseTurnoReturn {
           salario_mostrador: resultado?.salario_mostrador ?? 0,
           salario_salon: resultado?.salario_salon ?? 0,
           ganancia_neta: resultado?.ganancia_neta_dueno ?? 0,
-          detalle_json: resultado
-            ? JSON.stringify({ datos, resultado })
-            : null,
-        });
-        historialGuardado = true;
-      }
-      console.log('[useTurno] Paso 3/5 completado: Historial guardado');
+          detalle_json: resultado ? JSON.stringify({ datos, resultado }) : null,
+        },
+      });
 
-      // PASO 4: Actualizar las cantidades de cada producto en el inventario
-      if (inventarioFinal.length > 0) {
-        for (const item of inventarioFinal) {
-          await ProductoRepository.update(item.producto_id, {
-            cantidad: item.cantidad,
-          });
-        }
-        inventarioActualizado = true;
-        // Notificar a useProductos (tab Inventario) que hay nuevas cantidades en SQLite
-        marcarProductosActualizados();
-        console.log(
-          '[useTurno] Paso 4/5 completado: Inventario actualizado con cantidades finales'
-        );
-      } else {
-        // Sin inventario final registrado, no hay nada que actualizar.
-        // Se marca como completado para que el rollback no intente revertir.
-        inventarioActualizado = true;
-        console.log('[useTurno] Paso 4/5 omitido: Sin inventario final');
-      }
-
-      // PASO 5: Eliminar todos los movimientos del turno
-      await MovimientoRepository.eliminarMovimientosDelTurno(turno.id);
-      movimientosEliminados = true;
-      console.log('[useTurno] Paso 5/5 completado: Movimientos eliminados');
-
-      console.log('[useTurno] Cierre de turno completado exitosamente');
+      marcarProductosActualizados();
     } catch (e) {
-      console.error(
-        '[useTurno] Error durante el cierre. Iniciando rollback manual:',
-        e
-      );
-
-      /*
-       * ROLLBACK: Se revierte en orden inverso al de ejecucion.
-       * Solo se deshacen los pasos que alcanzaron a completarse
-       * segun las banderas definidas al inicio.
-       */
-      try {
-        // Si se actualizo el inventario pero no se eliminaron los movimientos,
-        // el estado quedo parcial. Se advierte para revision manual.
-        if (inventarioActualizado && !movimientosEliminados) {
-          console.warn(
-            '[useTurno] ADVERTENCIA: El inventario se actualizo pero los ' +
-              'movimientos no se pudieron eliminar. El turno quedo en estado ' +
-              'parcial. Se requiere revision manual.'
-          );
-        }
-
-        // Revertir paso 3: eliminar el historial si se alcanzo a guardar
-        if (historialGuardado) {
-          await HistorialRepository.eliminarPorTurnoId(turno.id); 
-          console.log('[useTurno] Rollback: Historial eliminado');
-        }
-
-        // Revertir paso 1: reabrir el turno
-        if (turnoCerrado) {
-          await TurnoRepository.reabrir(turno.id);
-          console.log('[useTurno] Rollback: Turno reabierto');
-        }
-      } catch (rollbackError) {
-        console.error(
-          '[useTurno] Error critico durante el rollback:',
-          rollbackError
-        );
-        console.error(
-          '[useTurno] ESTADO INCONSISTENTE - Se requiere intervencion manual. ' +
-            'turno_id=' + turno.id +
-            ', turnoCerrado=' + turnoCerrado +
-            ', historialGuardado=' + historialGuardado +
-            ', inventarioActualizado=' + inventarioActualizado +
-            ', movimientosEliminados=' + movimientosEliminados
-        );
-      }
-
+      console.error('[useTurno] Error durante el cierre transaccional:', e);
       throw e;
     } finally {
       setCerrando(false);
     }
 
     await recargar();
-  }, [turno, recargar]);
+  }, [turno, recargar, marcarProductosActualizados]);
 
   const actualizarDias = useCallback(
     async (dias: number) => {

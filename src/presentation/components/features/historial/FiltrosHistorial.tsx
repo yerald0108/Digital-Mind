@@ -115,7 +115,7 @@ interface FiltrosHistorialProps {
 
 export function FiltrosHistorial({ historial, filtros, onChange }: FiltrosHistorialProps) {
   const { C: Colors } = useTheme();
-  const styles = crearEstilos(Colors);
+  const styles = crearEstilos();
   const [panelVisible, setPanelVisible] = useState(false);
   const [draft, setDraft] = useState<FiltrosActivos>(filtros);
 
@@ -400,7 +400,7 @@ function ChipOpcion({
 }
 
 // ── Estilos ──────────────────────────────────────────────────
-function crearEstilos(Colors: ReturnType<typeof getColors>) {
+function crearEstilos() {
   return StyleSheet.create({
     botonFiltros: {
       flexDirection: 'row',

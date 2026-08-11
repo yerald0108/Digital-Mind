@@ -1,5 +1,5 @@
 // src/presentation/components/features/turno/ModalCambiosPrecio.tsx
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -185,12 +185,22 @@ export function ModalCambiosPrecio({
                 </View>
                 <Text style={styles.itemFecha}>{formatFechaHora(c.fecha)}</Text>
               </View>
-              <TouchableOpacity onPress={() => abrirEdicion(c)} style={styles.botonEditar}>
+              <TouchableOpacity
+                onPress={() => abrirEdicion(c)}
+                style={styles.botonEditar}
+                accessibilityRole="button"
+                accessibilityLabel={`Editar cambio de precio de ${c.producto_nombre}`}
+                hitSlop={8}
+              >
                 <MaterialCommunityIcons name="pencil-outline" size={16} color={Colors.accent} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => confirmarEliminar(c.id, c.producto_nombre)}
-                style={styles.botonEliminar}>
+                style={styles.botonEliminar}
+                accessibilityRole="button"
+                accessibilityLabel={`Eliminar cambio de precio de ${c.producto_nombre}`}
+                hitSlop={8}
+              >
                 <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.accentDanger} />
               </TouchableOpacity>
             </View>
@@ -208,8 +218,8 @@ export function ModalCambiosPrecio({
       {/* ── Modal de Confirmación ── */}
       <ModalConfirmacion
         visible={pendienteEliminar !== null}
-        titulo="Eliminar merma"
-        mensaje={`¿Eliminar la merma de "${pendienteEliminar?.nombre}"?`}  
+        titulo="Eliminar cambio de precio"
+        mensaje={`¿Eliminar el cambio de precio de "${pendienteEliminar?.nombre}"?`}
         onConfirmar={() => {
           if (pendienteEliminar) onEliminar(pendienteEliminar.id);
           setPendienteEliminar(null);

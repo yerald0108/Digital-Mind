@@ -40,7 +40,13 @@ export function Modal({ visible, title, onClose, children, scrollable = false }:
         <View style={[styles.container, { backgroundColor: C.bgSurface, borderColor: C.border }]}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: C.textPrimary }]}>{title}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel={`Cerrar ${title}`}
+              hitSlop={10}
+            >
               <MaterialCommunityIcons name="close" size={20} color={C.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -90,7 +96,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeButton: {
-    padding: Spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: Spacing.sm,
   },
   accentLine: {

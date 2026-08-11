@@ -70,6 +70,8 @@ export function ModalConfirmacion({
               style={[styles.boton, styles.botonCancelar, { backgroundColor: C.bgElevated, borderColor: C.border }]}
               onPress={onCancelar}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={labelCancelar}
             >
               <Text style={[styles.botonTexto, { color: C.textSecondary }]}>
                 {labelCancelar}
@@ -80,6 +82,8 @@ export function ModalConfirmacion({
               style={[styles.boton, styles.botonConfirmar, { backgroundColor: colorAccion }]}
               onPress={onConfirmar}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={labelConfirmar}
             >
               <MaterialCommunityIcons name={iconoAccion} size={15} color={C.textOnAccent} />
               <Text style={[styles.botonTexto, { color: C.textOnAccent }]}>

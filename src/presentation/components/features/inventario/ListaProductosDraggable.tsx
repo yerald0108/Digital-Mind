@@ -113,7 +113,9 @@ function ProductoItem({
                   style={[styles.botonOrden, index === 0 && styles.botonOrdenDeshabilitado]}
                   onPress={() => onMoverArriba(index)}
                   disabled={index === 0}
-                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mover ${item.nombre} hacia arriba`}
+                  hitSlop={10}
                 >
                   <MaterialCommunityIcons
                     name="chevron-up"
@@ -125,7 +127,9 @@ function ProductoItem({
                   style={[styles.botonOrden, index === total - 1 && styles.botonOrdenDeshabilitado]}
                   onPress={() => onMoverAbajo(index)}
                   disabled={index === total - 1}
-                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mover ${item.nombre} hacia abajo`}
+                  hitSlop={10}
                 >
                   <MaterialCommunityIcons
                     name="chevron-down"
@@ -178,6 +182,9 @@ function ProductoItem({
                   style={[styles.botonAccion, { backgroundColor: C.bgElevated, borderColor: C.border }]}
                   onPress={() => onEditar(item)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar ${item.nombre}`}
+                  hitSlop={8}
                 >
                   <MaterialCommunityIcons name="pencil-outline" size={16} color={C.accent} />
                 </TouchableOpacity>
@@ -185,6 +192,9 @@ function ProductoItem({
                   style={[styles.botonAccion, styles.botonEliminar]}
                   onPress={() => setConfirmVisible(true)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Eliminar ${item.nombre}`}
+                  hitSlop={8}
                 >
                   <MaterialCommunityIcons name="trash-can-outline" size={16} color={C.accentDanger} />
                 </TouchableOpacity>
@@ -290,13 +300,24 @@ export function ListaProductosDraggable({
             <Text style={[styles.resumenSeleccionTexto, { color: C.textPrimary }]}>
               {cantSeleccionados} {cantSeleccionados === 1 ? 'seleccionado' : 'seleccionados'}
             </Text>
-            <TouchableOpacity onPress={seleccionarTodos} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={seleccionarTodos}
+              accessibilityRole="button"
+              accessibilityLabel="Seleccionar todos los productos"
+              hitSlop={10}
+            >
               <Text style={[styles.seleccionarTodosTexto, { color: C.accent }]}>Todos</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.accionesSeleccion}>
-            <TouchableOpacity style={styles.botonCancelar} onPress={cancelarSeleccion} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.botonCancelar}
+              onPress={cancelarSeleccion}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar selección de productos"
+            >
               <MaterialCommunityIcons name="close" size={18} color={C.textSecondary} />
               <Text style={[styles.botonSeleccionTexto, { color: C.textSecondary }]}>Cancelar</Text>
             </TouchableOpacity>
@@ -309,6 +330,8 @@ export function ListaProductosDraggable({
               onPress={() => cantSeleccionados > 0 && setConfirmEliminarMultiple(true)}
               activeOpacity={0.7}
               disabled={cantSeleccionados === 0}
+              accessibilityRole="button"
+              accessibilityLabel={`Eliminar ${cantSeleccionados} productos seleccionados`}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={18} color={C.accentDanger} />
               <Text style={[styles.botonSeleccionTexto, { color: C.accentDanger }]}>Eliminar</Text>

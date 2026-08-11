@@ -1,5 +1,5 @@
 // src/presentation/components/features/turno/ModalEntradas.tsx
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +13,7 @@ import { SelectorProducto } from '../../ui/SelectorProducto';
 import { ModalConfirmacion } from '../../ui/ModalConfirmacion';
 import { Producto, ProductoInput } from '../../../../domain/entities/Producto';
 import { Entrada, EntradaInput } from '../../../../domain/entities/Entrada';
-import { entradaSchema, productoSchema } from '../../../../utils/validators';
+import { entradaSchema } from '../../../../utils/validators';
 import { getColors, Typography, Spacing, Radius } from '../../../../constants/theme';
 import { formatFechaHora } from '../../../../utils/formatters';
 import { useTheme } from '../../../hooks/useTheme';

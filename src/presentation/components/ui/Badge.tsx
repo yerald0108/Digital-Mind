@@ -13,7 +13,7 @@ interface BadgeProps {
 
 export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
   const { C: Colors } = useTheme();
-  const styles = crearEstilos(Colors);
+  const styles = crearEstilos();
   const variantStyles = crearVariantes(Colors);
   return (
     <View style={[styles.base, variantStyles[variant].container, style]}>
@@ -47,7 +47,7 @@ function crearVariantes(Colors: ReturnType<typeof getColors>): Record<BadgeVaria
   };
 }
 
-function crearEstilos(Colors: ReturnType<typeof getColors>) {
+function crearEstilos() {
   return StyleSheet.create({
   base: {
     paddingHorizontal: Spacing.sm,

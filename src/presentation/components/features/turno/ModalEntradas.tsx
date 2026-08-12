@@ -119,6 +119,7 @@ export function ModalEntradas({
         producto_nombre: productoSeleccionado.nombre,
         cantidad: data.cantidad,
         precio_costo: productoSeleccionado.precio_costo,
+        precio_venta: productoSeleccionado.precio_venta,
         notas: data.notas || null,
       });
     }
@@ -142,6 +143,7 @@ export function ModalEntradas({
       producto_nombre: productoNuevo.nombre,
       cantidad: data.cantidad,
       precio_costo: data.precio_costo,
+      precio_venta: data.precio_venta,
       notas: data.notas || null,
     });
 

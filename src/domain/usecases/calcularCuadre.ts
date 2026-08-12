@@ -117,10 +117,15 @@ export function calcularCuadre(datos: DatosCuadre): ResultadoCuadre {
       .filter((c) => c.producto_id === pid)
       .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
-    // Precio de venta inicial: inventario inicial, o primer cambio de precio, o 0
+    // Precio de venta inicial: inventario inicial → primer cambio de precio →
+    // primera entrada del turno (cubre productos nuevos sin inventario inicial) → 0.
+    // Sin este fallback a la entrada, productos creados en medio del turno
+    // siempre calculan precio_venta_inicial = 0, generando sobrantes ficticios.
     const precio_venta_inicial =
       itemInicial?.precio_venta ??
-      (cambiosDelProducto.length > 0 ? cambiosDelProducto[0].precio_anterior : 0);
+      (cambiosDelProducto.length > 0 ? cambiosDelProducto[0].precio_anterior : undefined) ??
+      primeraEntrada?.precio_venta ??
+      0;
 
     const cantidad_entradas = entradas
       .filter((e) => e.producto_id === pid)

@@ -50,6 +50,17 @@ function initDatabase(): SQLite.SQLiteDatabase {
     // Sin datos viejos o columnas antiguas no disponibles — ignorar
   }
 
+  // Migración v4: añadir precio_venta a entradas.
+  // Corrige el bug donde productos creados en medio del turno (sin inventario
+  // inicial) no tenían precio_venta disponible para calcular el cuadre,
+  // generando sobrantes ficticios igual a (unidades_vendidas × precio_venta).
+  try {
+    db.execSync('ALTER TABLE entradas ADD COLUMN precio_venta REAL NOT NULL DEFAULT 0;');
+    console.log('[DB] Migración v4: columna precio_venta añadida a entradas');
+  } catch {
+    // Ya existe — ignorar
+  }
+
   // Migración v3: índices para acelerar las queries del cuadre.
   // CREATE INDEX IF NOT EXISTS es idempotente — seguro ejecutar siempre.
   // Con 60+ productos y múltiples movimientos por turno, estos índices

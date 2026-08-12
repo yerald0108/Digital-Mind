@@ -29,10 +29,10 @@ export const MovimientoRepository = {
 
     const result = await db.runAsync(
       `INSERT INTO entradas
-       (turno_id, producto_id, producto_nombre, cantidad, precio_costo, notas)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (turno_id, producto_id, producto_nombre, cantidad, precio_costo, precio_venta, notas)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [input.turno_id, input.producto_id, input.producto_nombre,
-       input.cantidad, input.precio_costo, input.notas ?? null]
+       input.cantidad, input.precio_costo, input.precio_venta, input.notas ?? null]
     );
     return result.lastInsertRowId;
   },
